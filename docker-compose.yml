@@ -1,0 +1,32 @@
+services:
+  api:
+    image: myapp:latest
+    ports:
+      - "5000:5000"
+    build: ./api
+    container_name: codegames-api
+    env_file:
+      - .env.local
+      - .env
+    volumes:
+      - ./api:/api
+      - /api/node_modules
+    networks:
+      - codegames-network
+  web:
+    image: myapp-web:latest
+    build: ./web
+    ports:
+      - "5173:5173"
+    container_name: codegames-web
+    env_file:
+      - .env.local
+      - .env
+    volumes:
+      - ./web:/web
+      - /web/node_modules
+    networks:
+      - codegames-network
+networks:
+  codegames-network:
+    driver: bridge

@@ -1,0 +1,17 @@
+{
+	"name": "codegames-v2",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"build": "docker compose up --build",
+		"start": "docker compose up",
+		"down": "docker compose down",
+		"restart": "docker compose restart",
+		"build-web": "docker compose --build web",
+		"build-api": "docker compose --build api"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
+}
