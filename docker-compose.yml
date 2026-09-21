@@ -2,12 +2,12 @@ services:
   api:
     image: myapp:latest
     ports:
-      - "5000:5000"
+      - "${PORT:-5000}:${PORT:-5000}"
     build: ./api
     container_name: codegames-api
     env_file:
-      - .env.local
       - .env
+      - .env.local
     volumes:
       - ./api:/api
       - /api/node_modules
@@ -20,8 +20,8 @@ services:
       - "5173:5173"
     container_name: codegames-web
     env_file:
-      - .env.local
       - .env
+      - .env.local
     volumes:
       - ./web:/web
       - /web/node_modules

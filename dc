@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# docker compose wrapper: always loads .env, then .env.local (which overrides it).
+#
+# Compose reads env files in two unrelated ways:
+#   - env_file: in docker-compose.yml  -> variables inside the container
+#   - ${VAR} interpolation             -> variables inside docker-compose.yml itself
+# Interpolation only reads the shell and root .env, never .env.local, so the
+# --env-file chain below is what keeps the published port in sync with $PORT.
+#
+# Usage: ./dc up -d | ./dc logs -f api | ./dc exec api sh | ./dc ps
+set -euo pipefail
+
+cd "$(dirname "$(readlink -f "$0")")"
+
+# .env.local is gitignored; Compose hard-fails on a missing --env-file.
+touch .env.local
+
+exec docker compose --env-file .env --env-file .env.local "$@"
