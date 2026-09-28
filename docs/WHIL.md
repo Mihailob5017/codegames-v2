@@ -133,4 +133,127 @@ Cause: the edit was made with `sed -i`, which despite the name does not write in
 
 ### 28.9.2026
 
-Today I learned that in regards to the ADR document, once you commit to something, usually its bad practice to change it later on, I have done that by switching from Prisma to drizzle. Since I am a one man team, so far it shouldnt pose a problem, however its bad practice for the future.
+#### ADRs are append-only — supersede, don't rewrite
+
+I switched the ORM from Prisma to Drizzle, which meant walking back TD-009, a decision already marked `Accepted`. My first instinct was that changing an accepted decision is just bad practice and I had made a mess of the log.
+
+That is not quite the lesson. The ADR format already has an answer for changing your mind, and my own document states it at the top: _"Decisions are never edited once accepted; if one changes, add a new record and mark the old one `Superseded`."_ The thing you must not do is **edit or delete** the old record, because the value of the log is the reasoning as it stood at the time, not the current answer. Deleting TD-009 would have destroyed the only record of _why_ Prisma looked right, which is exactly what stops me re-litigating the same choice in six months.
+
+So the resolution was mechanical rather than shameful:
+
+- TD-009 keeps every word; only its status becomes `Superseded by TD-024`.
+- TD-024 is a new record saying what changed and why.
+
+Reversing a decision is normal. Losing the trail is the actual failure.
+
+#### `localhost` means something different in every process that reads it
+
+This was the real bug of the day, and I had already written down the rule that would have caught it. From the 21.9 entry:
+
+> Inside the Compose network, containers reach each other by **service name**, not `localhost`.
+
+I knew that for HTTP between services. What I missed is that it applies to **any** hostname in **any** string, including one buried in the middle of a connection URL where it does not read like a hostname at all:
+
+```
+DATABASE_URL=postgresql://user:pass@localhost:5432/codegames
+                                    ^^^^^^^^^ this is a hostname
+```
+
+`env_file: - .env` copies that value into the container verbatim — no rewriting, no interpolation. So one unchanged string resolved three different ways depending on which process read it:
+
+| where it runs              | `localhost:5432` resolves to                               | result                                            |
+| -------------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
+| my host shell              | the Fedora system Postgres (`systemctl status postgresql`) | connects to the **wrong server**, then fails auth |
+| inside the `api` container | the api container's own loopback, nothing listening        | `ECONNREFUSED`                                    |
+| inside `api`, as `db:5432` | the `db` service                                           | correct                                           |
+
+The nastiest row is the first. It did not fail with "no such host" or "connection refused" — it **successfully connected to a completely different database server** that happens to run on my laptop, and then failed with:
+
+```
+Ident authentication failed for user "mixailo146"
+```
+
+That error points at credentials, so I went looking at the password. The password was fine; the _host_ was wrong. An authentication error is not proof that you reached the machine you meant to reach — it only proves you reached _a_ Postgres.
+
+Worth recording why the host cannot reach the container's database at all: the `db` service has no `ports:` mapping, so 5432 exists only inside the Compose network.
+
+```
+$ docker compose ps
+api  ->  0.0.0.0:5000->5000/tcp    # published to the host
+db   ->  5432/tcp                  # container-only, no host mapping
+```
+
+That is deliberate, but it means "localhost:5432 works on my machine" was never going to be the containerised database — there was no arrangement of credentials that could have made that URL correct.
+
+#### `environment:` overrides `env_file:`, one key at a time
+
+The fix is that the two can coexist. `environment:` wins for the keys it names, and every other key still falls through from `env_file:`:
+
+```yaml
+api:
+  env_file:
+    - .env # PORT, NODE_ENV, POSTGRES_* still all come from here
+  environment:
+    # only this one key is overridden
+    DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+```
+
+So `.env` keeps the host-shaped URL for anything I run locally, and the container gets the Compose-shaped one. Proved it from inside:
+
+```bash
+$ docker compose exec api sh -c 'echo $DATABASE_URL'
+postgresql://mixailo146:***@db:5432/codegames    # not the .env value
+```
+
+Note that this line uses `${VAR}` interpolation, which per the 21.9 table reads the shell and the root `.env` — **not** `env_file`. The two mechanisms are still unrelated; this one line just happens to touch both.
+
+#### An env var only does something if some process reads it
+
+The `db` service had this, and I assumed it was load-bearing:
+
+```yaml
+db:
+  environment:
+    DATABASE_URL: postgresql://...@db:5432/${POSTGRES_DB}?schema=public
+```
+
+The `postgres:17` image never reads `DATABASE_URL`. It initialises itself from `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB`, and ignores anything else handed to it. That line did nothing — and it did nothing in the most misleading way possible, because while my real `DATABASE_URL` was broken, a correct-looking one sat a few lines away in the same file. Deleted.
+
+(The `?schema=public` suffix was a Prisma-ism too. `pg` and Drizzle ignore it.)
+
+#### "Latest of everything" is not a valid version set
+
+Prisma 8 ships as several independently versioned packages, and the failure taught me to distrust the layer an error names. The symptom:
+
+```
+Failed to parse syntax of config file at ".../prisma.config.ts"
+```
+
+The syntax was fine. An old CLI (`prisma@6`) was being handed a config format from a newer generation — an outdated **parser**, reporting itself as a **syntax** problem. Same shape as the auth error above: the message named the wrong layer.
+
+With the CLI updated, a second mismatch surfaced, because the CLI bundles its own copy of the toolchain and it has to match the one the app depends on:
+
+| `@prisma/orm-postgres` | matching `prisma` CLI |
+| ---------------------- | --------------------- |
+| rc.11                  | rc.15                 |
+| rc.12                  | rc.17                 |
+| rc.13                  | none released yet     |
+
+`npm install x@latest y@latest` produced a pair that could not work together. The lesson generalises past Prisma: when a tool vendors an engine, the valid version sets are **pairs**, and "newest of each" is not necessarily one of them. Part of why Drizzle appealed — `drizzle-orm` and `drizzle-kit` are two ordinary packages with no bundled engine between them.
+
+#### `docker compose run` vs `exec`
+
+For the root `db:*` scripts I needed one-off commands in the api service. Two options, and they are not interchangeable:
+
+|                                     | needs the stack running | starts dependencies       | container              |
+| ----------------------------------- | ----------------------- | ------------------------- | ---------------------- |
+| `docker compose exec api <cmd>`     | **yes**                 | no                        | reuses the running one |
+| `docker compose run --rm api <cmd>` | no                      | yes, honours `depends_on` | fresh, then discarded  |
+
+`run` is right for migrations: it starts `db` and waits for the healthcheck, so `npm run db:migrate` works from a cold stop. `exec` is right for `db:psql`, where I want a shell inside a container that is already up.
+
+One catch: `run` does **not** publish the service's `ports:` by default. Usually that is what I want, since it avoids clashing with an already-running stack, but Drizzle Studio needs a reachable port, so that script passes `-p 4983:4983` explicitly.
+
+#### Correction to the 21.9 entry
+
+~~the package was removed entirely~~ — `dotenv` is back in `api/package.json`. It arrived with the Prisma scaffold, which loaded env inside its own config file. Now that Prisma is gone nothing imports it, so it is an unused dependency rather than a working one. The reasoning in the 21.9 entry still holds: inside Docker, Compose has already injected the variables before Node starts, so the package has nothing to contribute.

@@ -147,7 +147,7 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 ## TD-015: Database migrations in Docker and production
 
 - **Status:** Open
-- **Context:** How and when `drizzle-kit migrate` runs (entrypoint script, init container, CI step).
+- **Context:** In development, migrations are applied on demand with `npm run db:migrate` at the repo root, which runs `drizzle-kit migrate` in a throwaway `api` container. Still to decide: how migrations run on deploy (entrypoint script, init container, or CI step), and whether the API should refuse to start against an unmigrated database.
 
 ## TD-016: Code-execution limits and isolation
 
@@ -194,4 +194,4 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 - **Context:** TD-009 chose Prisma. The Prisma 8 setup proved fiddly to pin: the `prisma` CLI, `@prisma/cli-engine` and `@prisma/orm-postgres` are versioned independently and only specific combinations work together, and Prisma 8 is still a release candidate. We want to evaluate Drizzle instead.
 - **Decision:** Remove Prisma from the repository. Use Drizzle ORM, with `drizzle-kit` for migrations, over the `pg` driver already present in the API.
 - **Alternatives considered:** Staying on the Prisma 8 RC (version-pairing churn on every bump); Prisma 7 (stable, but we would rather evaluate Drizzle now); hand-written SQL over `pg` (loses type-safe query building).
-- **Consequences:** The schema is authored in TypeScript and `drizzle-kit` generates SQL migration files that we review and commit; there is no client-generation step. PostgreSQL itself is unchanged. TD-015 must be re-answered for `drizzle-kit`. Drizzle is not installed yet — Prisma has only been removed.
+- **Consequences:** The schema is authored in TypeScript (`api/db/schema.ts`) and `drizzle-kit` generates SQL migration files under `api/db/migrations/` that we review and commit; there is no client-generation step. PostgreSQL itself is unchanged. All `drizzle-kit` commands run inside the `api` container, driven by `db:*` scripts at the repo root.

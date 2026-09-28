@@ -11,7 +11,14 @@
 		"app:rebuild": "docker compose down -v && docker compose up --build",
 		"app:build-web": "docker compose up --build web",
 		"app:build-api": "docker compose up --build api",
-		"app:logs": "docker compose logs -f"
+		"app:logs": "docker compose logs -f",
+		"db:generate": "docker compose run --rm api npm run db:generate",
+		"db:migrate": "docker compose run --rm api npm run db:migrate",
+		"db:push": "docker compose run --rm api npm run db:push",
+		"db:check": "docker compose run --rm api npm run db:check",
+		"db:seed": "docker compose run --rm api npm run db:seed",
+		"db:studio": "docker compose run --rm -p 4983:4983 api npm run db:studio",
+		"db:psql": "docker compose exec db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"'"
 	},
 	"keywords": [],
 	"author": "",

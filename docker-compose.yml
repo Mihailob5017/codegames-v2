@@ -6,6 +6,10 @@ services:
     build: ./api
     env_file:
       - .env
+    environment:
+      # Overrides the DATABASE_URL in .env, whose "localhost" means the api
+      # container itself. Inside the compose network the database is "db".
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}
     volumes:
       - ./api:/api
       - /api/node_modules
@@ -27,8 +31,6 @@ services:
   db:
     image: postgres:17
     restart: always
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}?schema=public
     env_file:
       - .env
     volumes:
