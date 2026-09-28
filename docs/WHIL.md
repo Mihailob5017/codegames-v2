@@ -21,7 +21,7 @@ docker compose down -v && docker compose up --build
 
 `down -v` removes the volumes, `--build` rebuilds the images. Safe here because this project declares no named volumes, so there is no database state to lose.
 
-**Nuance worth remembering:** this only applies when installing on the *host*. Running `npm install` *inside* the container writes straight into the anonymous volume, so it takes effect immediately with no rebuild. Because `./api` is bind-mounted, the updated `package.json` and `package-lock.json` land back on the host too:
+**Nuance worth remembering:** this only applies when installing on the _host_. Running `npm install` _inside_ the container writes straight into the anonymous volume, so it takes effect immediately with no rebuild. Because `./api` is bind-mounted, the updated `package.json` and `package-lock.json` land back on the host too:
 
 ```bash
 docker compose exec api npm install <pkg>
@@ -56,8 +56,8 @@ TypeScript will tell you this directly if you ask: `npx tsc --showConfig`.
 
 ```yaml
 env_file:
-  - .env          # defaults (committed)
-  - .env.local    # personal overrides (gitignored) — wins
+  - .env # defaults (committed)
+  - .env.local # personal overrides (gitignored) — wins
 ```
 
 I originally had these reversed, so the committed `.env` was overriding my gitignored `.env.local` — defeating the whole point of having a `.local` file.
@@ -66,10 +66,10 @@ I originally had these reversed, so the committed `.env` was overriding my gitig
 
 This was the big one. Compose uses env files in **two unrelated ways**:
 
-| mechanism | what it sets | reads `.env` | reads `.env.local` |
-| --- | --- | --- | --- |
-| `env_file:` | variables inside the **container** | yes | yes |
-| `${VAR}` interpolation | variables inside **docker-compose.yml itself** | yes | **no** |
+| mechanism              | what it sets                                   | reads `.env` | reads `.env.local` |
+| ---------------------- | ---------------------------------------------- | ------------ | ------------------ |
+| `env_file:`            | variables inside the **container**             | yes          | yes                |
+| `${VAR}` interpolation | variables inside **docker-compose.yml itself** | yes          | **no**             |
 
 Interpolation only reads the shell environment and the root `.env`. This is why my port mapping kept using `5000` while the app inside the container ran on `5001` — two different systems reading two different sources.
 
@@ -130,3 +130,7 @@ Cause: the edit was made with `sed -i`, which despite the name does not write in
 - `docker compose up` reuses an existing image when the service has an `image:` tag, even if the `Dockerfile` changed. Always `--build` after editing a Dockerfile.
 - An `Exited (143)` status is just `SIGTERM` — a normal `Ctrl+C` shutdown, not a crash.
 - Inside the Compose network, containers reach each other by **service name**, not `localhost` — `http://api:5001`, since `localhost` in a container refers to that container itself.
+
+### 28.9.2026
+
+Today I learned that in regards to the ADR document, once you commit to something, usually its bad practice to change it later on, I have done that by switching from Prisma to drizzle. Since I am a one man team, so far it shouldnt pose a problem, however its bad practice for the future.

@@ -86,7 +86,7 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 
 ## TD-009: PostgreSQL with Prisma
 
-- **Status:** Accepted
+- **Status:** Superseded by TD-024
 - **Context:** Relational data (users, challenges, test cases, submissions) with strong integrity requirements.
 - **Decision:** PostgreSQL as the database, Prisma as ORM and migration tool.
 - **Alternatives considered:** MongoDB (schema flexibility not needed); Drizzle / TypeORM / Knex (Prisma chosen for schema-first DX and generated types).
@@ -147,7 +147,7 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 ## TD-015: Database migrations in Docker and production
 
 - **Status:** Open
-- **Context:** How and when `prisma migrate deploy` runs (entrypoint script, init container, CI step).
+- **Context:** How and when `drizzle-kit migrate` runs (entrypoint script, init container, CI step).
 
 ## TD-016: Code-execution limits and isolation
 
@@ -187,3 +187,11 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 ## TD-023: Logging, monitoring and error tracking
 
 - **Status:** Open
+
+## TD-024: Drizzle ORM instead of Prisma
+
+- **Status:** Accepted
+- **Context:** TD-009 chose Prisma. The Prisma 8 setup proved fiddly to pin: the `prisma` CLI, `@prisma/cli-engine` and `@prisma/orm-postgres` are versioned independently and only specific combinations work together, and Prisma 8 is still a release candidate. We want to evaluate Drizzle instead.
+- **Decision:** Remove Prisma from the repository. Use Drizzle ORM, with `drizzle-kit` for migrations, over the `pg` driver already present in the API.
+- **Alternatives considered:** Staying on the Prisma 8 RC (version-pairing churn on every bump); Prisma 7 (stable, but we would rather evaluate Drizzle now); hand-written SQL over `pg` (loses type-safe query building).
+- **Consequences:** The schema is authored in TypeScript and `drizzle-kit` generates SQL migration files that we review and commit; there is no client-generation step. PostgreSQL itself is unchanged. TD-015 must be re-answered for `drizzle-kit`. Drizzle is not installed yet — Prisma has only been removed.

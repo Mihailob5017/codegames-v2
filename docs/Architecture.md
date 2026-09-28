@@ -46,9 +46,9 @@ The Web segment talks only to the API. Piston, PostgreSQL and MinIO are internal
 - **Stack:** Express + TypeScript.
 - **Structure:** Domain-Driven Design. Code is organised by domain into
   - _Entities_ – core business objects and their invariants
-  - _Repositories_ – persistence abstractions over Prisma
+  - _Repositories_ – persistence abstractions over Drizzle ORM
   - _Services_ – application and domain logic
-- **Persistence:** PostgreSQL accessed through Prisma.
+- **Persistence:** PostgreSQL accessed through Drizzle ORM.
 - **Seeding:** a seed script populates the database (challenges, test cases, etc.) during the initial Docker build so a fresh environment is usable immediately.
 
 ## 4. Key Flows
