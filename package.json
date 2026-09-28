@@ -4,14 +4,14 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"docker:start": "docker compose up",
-		"docker:build": "docker compose up --build",
-		"docker:down": "docker compose down",
-		"docker:restart": "docker compose restart",
-		"docker:rebuild": "docker compose down -v && docker compose up --build",
-		"docker:build-web": "docker compose up --build web",
-		"docker:build-api": "docker compose up --build api",
-		"docker:logs": "docker compose logs -f"
+		"app:start": "docker compose up",
+		"app:build": "docker compose up --build",
+		"app:down": "docker compose down",
+		"app:restart": "docker compose restart",
+		"app:rebuild": "docker compose down -v && docker compose up --build",
+		"app:build-web": "docker compose up --build web",
+		"app:build-api": "docker compose up --build api",
+		"app:logs": "docker compose logs -f"
 	},
 	"keywords": [],
 	"author": "",

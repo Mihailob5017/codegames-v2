@@ -27,6 +27,8 @@ services:
   db:
     image: postgres:17
     restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB}?schema=public
     env_file:
       - .env
     volumes:
