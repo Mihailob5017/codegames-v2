@@ -4,14 +4,17 @@ import { z } from "zod";
 const createUserSchema = z.object({
 	username: z
 		.string(schemaErrors.mustBeType("username", "string"))
+		.trim()
 		.min(3, schemaErrors.length("username", 3, 30))
 		.max(30, schemaErrors.length("username", 3, 30)),
 	firstName: z
 		.string(schemaErrors.mustBeType("firstName", "string"))
+		.trim()
 		.min(1, schemaErrors.length("firstName", 1, 50))
 		.max(50, schemaErrors.length("firstName", 1, 50)),
 	lastName: z
 		.string(schemaErrors.mustBeType("lastName", "string"))
+		.trim()
 		.min(1, schemaErrors.length("lastName", 1, 50))
 		.max(50, schemaErrors.length("lastName", 1, 50)),
 	email: z.email(schemaErrors.mustBeType("email", "valid email")),

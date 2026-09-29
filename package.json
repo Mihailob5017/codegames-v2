@@ -18,7 +18,11 @@
 		"db:check": "docker compose run --rm api npm run db:check",
 		"db:seed": "docker compose run --rm api npm run db:seed",
 		"db:studio": "docker compose run --rm -p 4983:4983 api npm run db:studio",
-		"db:psql": "docker compose exec db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"'"
+		"db:psql": "docker compose exec db sh -c 'psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"'",
+		"test": "npm run test:api && npm run test:web",
+		"test:api": "npm --prefix api test",
+		"test:web": "npm --prefix web test",
+		"test:coverage": "npm --prefix api run test:coverage && npm --prefix web run test:coverage"
 	},
 	"keywords": [],
 	"author": "",

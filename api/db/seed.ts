@@ -1,5 +1,5 @@
 import { db } from "../config/db.config.ts";
-import { NewUser, users } from "./schema.ts";
+import { users, type NewUser } from "./schema.ts";
 
 const seedUsers: NewUser[] = [
 	{

@@ -2,6 +2,7 @@ import express from "express";
 import type { Express } from "express";
 import type { EnvConfig } from "./env.config.ts";
 import { adminRouter } from "../admin/index.ts";
+import { errorHandler } from "../middleware/error.middleware.ts";
 
 class ExpressServer {
 	private readonly app: Express;
@@ -11,6 +12,14 @@ class ExpressServer {
 		this.env = env;
 		this.app = express();
 		this.serverInstance = null;
+		// Wired up front so the app can be exercised (e.g. by supertest) without listening.
+		this.setupMiddleware();
+		this.setupRoutes();
+		this.setupErrorHandling();
+	}
+
+	public getApp(): Express {
+		return this.app;
 	}
 
 	private setupMiddleware(): void {
@@ -21,9 +30,12 @@ class ExpressServer {
 		this.app.use(adminRouter);
 	}
 
-	public start(): void {
-		this.setupMiddleware();
-		this.setupRoutes();
+	// Must be registered last so it receives errors from every route and middleware above.
+	private setupErrorHandling(): void {
+		this.app.use(errorHandler);
+	}
+
+	public listen(): void {
 		console.log("test if the env works");
 		console.log("ENV", this.env.NODE_ENV);
 		console.log("PORT", this.env.PORT);
