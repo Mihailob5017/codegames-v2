@@ -1,6 +1,7 @@
 import express from "express";
 import type { Express } from "express";
 import type { EnvConfig } from "./env.config.ts";
+import { adminRouter } from "../admin/index.ts";
 
 class ExpressServer {
 	private readonly app: Express;
@@ -16,7 +17,9 @@ class ExpressServer {
 		this.app.use(express.json());
 	}
 
-	private setupRoutes(): void {}
+	private setupRoutes(): void {
+		this.app.use(adminRouter);
+	}
 
 	public start(): void {
 		this.setupMiddleware();

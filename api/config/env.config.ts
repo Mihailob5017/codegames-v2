@@ -5,10 +5,11 @@ const envSchema = z.object({
 	NODE_ENV: z
 		.enum(["development", "production", "test"])
 		.default("development"),
+	DATABASE_URL: z.url(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
-export const validateEnv = (env: NodeJS.ProcessEnv): EnvConfig => {
-	return envSchema.parse(env);
-};
+// Parsed once at import time, so every entry point (server, seed, scripts)
+// shares the same validated config and fails fast on a bad .env.
+export const env: EnvConfig = envSchema.parse(process.env);

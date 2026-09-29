@@ -1,8 +1,6 @@
 import ExpressServer from "./config/express.config.ts";
 
-import { validateEnv } from "./config/env.config.ts";
-
-const env = validateEnv(process.env);
+import { env } from "./config/env.config.ts";
 
 const server = new ExpressServer(env);
 

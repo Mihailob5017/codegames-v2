@@ -1,17 +1,44 @@
 import { db } from "../config/db.config.ts";
-import { users } from "./schema.ts";
+import { NewUser, users } from "./schema.ts";
 
-const seedUsers = [
-	{ email: "alice@example.com", username: "alice", name: "Alice" },
-	{ email: "bob@example.com", username: "bob", name: "Bob" },
+const seedUsers: NewUser[] = [
+	{
+		username: "mixailo146",
+		firstName: "Mihailo",
+		lastName: "Boskovic",
+		email: "mixailo146@example.com",
+		password: "password",
+		isAdmin: true,
+		isVerified: true,
+		score: 0,
+	},
+	{
+		username: "ximperl",
+		firstName: "Ksenija",
+		lastName: "User",
+		email: "ximperl@example.com",
+		password: "password",
+		isAdmin: false,
+		isVerified: true,
+		score: 0,
+	},
+	{
+		username: "john_doe",
+		firstName: "John",
+		lastName: "Doe",
+		email: "john_doe@example.com",
+		password: "password",
+		isAdmin: false,
+		isVerified: false,
+		score: 0,
+	},
 ];
 
 const seed = async () => {
-	// Idempotent: re-running the seed must not fail on the unique email index.
 	const inserted = await db
 		.insert(users)
 		.values(seedUsers)
-		.onConflictDoNothing({ target: users.email })
+		.onConflictDoNothing()
 		.returning({ id: users.id, email: users.email });
 
 	console.log(`Seeded ${inserted.length} user(s).`);
