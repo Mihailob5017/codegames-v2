@@ -36,7 +36,6 @@ class ExpressServer {
 	}
 
 	public listen(): void {
-		console.log("test if the env works");
 		console.log("ENV", this.env.NODE_ENV);
 		console.log("PORT", this.env.PORT);
 		this.serverInstance = this.app.listen(this.env.PORT, () => {
