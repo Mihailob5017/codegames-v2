@@ -1,6 +1,6 @@
 {
-	"watch": ["index.ts"],
+	"watch": ["."],
 	"ext": "ts,json",
-	"ignore": ["node_modules"],
+	"ignore": ["node_modules", "db/migrations"],
 	"exec": "ts-node index.ts"
 }
