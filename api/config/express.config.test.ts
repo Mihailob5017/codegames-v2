@@ -2,6 +2,17 @@ import { createServer } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ExpressServer from "./express.config.ts";
 
+// The lifecycle tests never reach the database; stubbing the repository keeps
+// db.config.ts (which needs DATABASE_URL at import time) out of the module graph.
+vi.mock(import("../admin/admin.repository.ts"), () => ({
+	AdminRepository: {
+		createUser: vi.fn(),
+		deleteUser: vi.fn(),
+		getUserById: vi.fn(),
+		getAllUsers: vi.fn(),
+	},
+}));
+
 // Asks the OS for a free port so parallel runs never collide.
 const getFreePort = () =>
 	new Promise<number>((resolve, reject) => {

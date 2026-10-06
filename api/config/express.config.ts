@@ -1,7 +1,7 @@
 import express from "express";
 import type { Express } from "express";
 import type { EnvConfig } from "./env.config.ts";
-import { adminRouter } from "../admin/index.ts";
+import { default as adminRouter } from "../admin/admin.route.ts";
 import { errorHandler } from "../middleware/error.middleware.ts";
 
 class ExpressServer {

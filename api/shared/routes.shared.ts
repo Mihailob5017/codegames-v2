@@ -4,8 +4,7 @@ import { API_ROUTE } from "../helpers/contants.ts";
 export const adminRoutes = {
 	baseURL: `${API_ROUTE}/admin`,
 	healthCheck: `${API_ROUTE}/admin/health-check`,
-	getUsers: `${API_ROUTE}/admin/users`,
-	getUserById: `${API_ROUTE}/admin/users/:id`,
-	createUser: `${API_ROUTE}/admin/create-user`,
+	users: `${API_ROUTE}/admin/users`,
+	userById: `${API_ROUTE}/admin/users/:id`,
 	// Add more admin routes here as needed
 };
