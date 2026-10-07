@@ -2,6 +2,8 @@ import express from "express";
 import type { Express, Router } from "express";
 import type { EnvConfig } from "./env.config.ts";
 import { errorHandler } from "../middleware/error.middleware.ts";
+import { pinoHttp } from "pino-http";
+import { customLogLevel, logger } from "./logger.config.ts";
 
 class ExpressServer {
 	private readonly app: Express;
@@ -22,6 +24,7 @@ class ExpressServer {
 	}
 
 	private setupMiddleware(): void {
+		this.app.use(pinoHttp({ logger, customLogLevel }));
 		this.app.use(express.json());
 	}
 
@@ -37,8 +40,10 @@ class ExpressServer {
 	}
 
 	public listen(): void {
-		console.log("ENV", this.env.NODE_ENV);
-		console.log("PORT", this.env.PORT);
+		logger.info(
+			{ env: this.env.NODE_ENV, port: this.env.PORT },
+			"Server started",
+		);
 		this.serverInstance = this.app.listen(this.env.PORT, () => {
 			console.log(`Server is running on port ${this.env.PORT}`);
 		});

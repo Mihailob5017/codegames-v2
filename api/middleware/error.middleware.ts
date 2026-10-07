@@ -85,7 +85,7 @@ const normalizeError = (err: unknown): AppError => {
 
 export const errorHandler = (
 	err: unknown,
-	_req: Request,
+	req: Request,
 	res: Response,
 	_next: NextFunction,
 ) => {
@@ -95,6 +95,9 @@ export const errorHandler = (
 	}
 
 	const appError = normalizeError(err);
+	const level = appError.statusCode >= 500 ? "error" : "warn";
+
+	req.log[level]({ err: appError }, appError.message);
 
 	res.status(appError.statusCode).json(toResponseBody(appError));
 };
