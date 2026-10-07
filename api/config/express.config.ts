@@ -1,20 +1,19 @@
 import express from "express";
-import type { Express } from "express";
+import type { Express, Router } from "express";
 import type { EnvConfig } from "./env.config.ts";
-import { default as adminRouter } from "../admin/admin.route.ts";
 import { errorHandler } from "../middleware/error.middleware.ts";
 
 class ExpressServer {
 	private readonly app: Express;
 	private readonly env: EnvConfig;
 	private serverInstance: any;
-	constructor(env: EnvConfig) {
+	constructor(env: EnvConfig, routes: Router[]) {
 		this.env = env;
 		this.app = express();
 		this.serverInstance = null;
 		// Wired up front so the app can be exercised (e.g. by supertest) without listening.
 		this.setupMiddleware();
-		this.setupRoutes();
+		this.setupRoutes(routes);
 		this.setupErrorHandling();
 	}
 
@@ -26,8 +25,10 @@ class ExpressServer {
 		this.app.use(express.json());
 	}
 
-	private setupRoutes(): void {
-		this.app.use(adminRouter);
+	private setupRoutes(routes: Router[]): void {
+		routes.forEach((route) => {
+			this.app.use(route);
+		});
 	}
 
 	// Must be registered last so it receives errors from every route and middleware above.

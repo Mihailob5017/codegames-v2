@@ -2,7 +2,9 @@ import ExpressServer from "./config/express.config.ts";
 
 import { env } from "./config/env.config.ts";
 
-const server = new ExpressServer(env);
+import adminRouter from "./admin/admin.route.ts";
+
+const server = new ExpressServer(env, [adminRouter]);
 
 server.listen();
 

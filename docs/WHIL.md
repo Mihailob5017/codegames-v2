@@ -257,3 +257,80 @@ One catch: `run` does **not** publish the service's `ports:` by default. Usually
 #### Correction to the 21.9 entry
 
 ~~the package was removed entirely~~ — `dotenv` is back in `api/package.json`. It arrived with the Prisma scaffold, which loaded env inside its own config file. Now that Prisma is gone nothing imports it, so it is an unused dependency rather than a working one. The reasoning in the 21.9 entry still holds: inside Docker, Compose has already injected the variables before Node starts, so the package has nothing to contribute.
+
+### 7.10.2026
+
+#### Express 5 controllers don't need try/catch
+
+Every controller used to end with the same block:
+
+```ts
+} catch (error) {
+	if (error !== undefined) {
+		next(error);
+	} else {
+		next(new AppError(/* generic 500 */));
+	}
+}
+```
+
+That pattern comes from **Express 4**, which ignored the promise an `async` handler returns. A rejected promise there was an unhandled rejection, so the request just hung, and every handler had to catch and call `next(err)` itself.
+
+**Express 5** does it for me: if a handler's promise rejects, Express calls `next(err)` with the error. So the controller only describes the happy path, and anything thrown along the way (a `ZodError` from `.parse`, an `AppError` from the service, a pg error from the repository) lands in the error middleware on its own:
+
+```ts
+export const getAllUsers: Controller = async (req, res) => {
+	const users = await AdminService.getAllUsers();
+	res.status(HTTPStatusCodes.OK).json(users);
+};
+```
+
+The `else` branch above was dead code anyway: it only ran if something literally threw `undefined`.
+
+**When a `catch` is still right:** only when that layer adds information nobody else has. E.g. the service turning "repository returned nothing" into `NOT_FOUND`. Catching just to rewrap is worse than not catching: my old `AdminService.deleteUser` turned *every* DB failure, outages included, into "User not found".
+
+**Caveats:**
+
+- The error must be on the handler's promise chain. A forgotten `await`, or a throw inside a `setTimeout`/callback, escapes it, and there `next(err)` is still needed.
+- Express recognises the error middleware by its **4 parameters** `(err, req, res, next)`, and it must be registered after the routes.
+
+#### Error handling in stages: normalize → structure → respond
+
+The goal: anything can break anywhere (Zod, SQL, a timeout, my own code), it just throws, and **one** middleware decides what everyone gets to see. Splitting that into stages is what made it manageable:
+
+```
+anything throws ──► 1. normalize ──► 2. one structure ──► 3. respond
+                     unknown → AppError   AppError          log, filter fields, act, send
+```
+
+**1. Normalize.** `normalizeError(err: unknown): AppError` is the only place that knows about third-party error types. My own `AppError` passes through, a `ZodError` becomes `VALIDATION_ERROR`, a pg unique violation will become `DUPLICATE_RESOURCE` (next step), and anything unrecognised becomes `INTERNAL_ERROR`. Order matters: mine first, then specific ones, the fallback last. Two rules:
+
+- **Keep the original as `cause`** (`super(message, { cause })`), so the logs still have the real error.
+- **Never copy a third-party `.message` into mine.** pg messages contain table and constraint names.
+
+**2. Structure.** A catalogue defines every error once, as code → HTTP status + user-facing text, and the type is derived from it:
+
+```ts
+const ERRORS = {
+	VALIDATION_ERROR: { statusCode: 400, response: "Some fields are invalid. ..." },
+	NOT_FOUND:        { statusCode: 404, response: "..." },
+	INTERNAL_ERROR:   { statusCode: 500, response: "..." },
+} as const;
+type ErrorCode = keyof typeof ERRORS;
+
+throw new AppError("NOT_FOUND", { message, details?, cause? });
+```
+
+A code says **what went wrong from the client's point of view**, not which library noticed. A `ZodError` and a hand-written "invalid id" check are both `VALIDATION_ERROR`, with the same `details` shape (`fieldErrors`), so the FE handles them the same way.
+
+**3. Respond.** The handler does the side effects, in this order: check `res.headersSent` first, then normalize, log, any extra actions (alerts later), and send. Each field has one audience:
+
+| Field                        | Who sees it         | Where           |
+| ---------------------------- | ------------------- | --------------- |
+| `response`                   | the user            | the UI          |
+| `code`, `message`, `details` | the FE dev          | the network tab |
+| `cause`, `stack`, method/URL | me                  | the server log  |
+
+`toResponseBody(appError)` is an **allowlist**: `cause` and `stack` aren't in its return type, so they can't leak to the browser by accident.
+
+**Lesson from a bug on the way:** my Zod branch did `new AppError(...)` without `return`, so every validation error fell through to a 500. Nothing showed it, because nothing was logged yet. Logging belongs in stage 3 from day one, even if it's only a temporary `console.error(appError)`.
