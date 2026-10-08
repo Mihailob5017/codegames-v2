@@ -12,20 +12,20 @@ Tick items off as they're done, and write a [WHIL](WHIL.md) entry for each lesso
 2. **Break it on purpose.** Stop the database mid-request, make a dependency slow, fill a queue. Then check whether the app degrades gracefully or falls over.
 3. **Simulate the users you don't have.** Load tests with [k6](https://k6.io/) make performance work measurable: generate load, find the bottleneck, fix it, measure again.
 4. **Write a WHIL entry for every lesson.**
-5. **Record a TD for every decision** in [Technical Decisions](Technical%20Decisions.md). Explaining *why* is half of senior backend work.
+5. **Record a TD for every decision** in [Technical Decisions](Technical%20Decisions.md). Explaining _why_ is half of senior backend work.
 
 ---
 
 ## Where the app's features meet backend topics
 
-| Feature | Backend topic it teaches |
-| --- | --- |
-| Running user code (Piston) | job queues and workers, timeouts, sandboxing, circuit breakers |
-| Scores and leaderboards | Redis sorted sets, caching and cache invalidation |
-| Email (nodemailer) | background jobs, retries, idempotency (never send an email twice) |
-| Images (MinIO) | object storage, presigned upload URLs |
-| Live submission results | WebSockets or server-sent events |
-| Users and admins | authentication, roles and permissions, security |
+| Feature                    | Backend topic it teaches                                          |
+| -------------------------- | ----------------------------------------------------------------- |
+| Running user code (Piston) | job queues and workers, timeouts, sandboxing, circuit breakers    |
+| Scores and leaderboards    | Redis sorted sets, caching and cache invalidation                 |
+| Email (nodemailer)         | background jobs, retries, idempotency (never send an email twice) |
+| Images (MinIO)             | object storage, presigned upload URLs                             |
+| Live submission results    | WebSockets or server-sent events                                  |
+| Users and admins           | authentication, roles and permissions, security                   |
 
 ---
 
@@ -33,11 +33,16 @@ Tick items off as they're done, and write a [WHIL](WHIL.md) entry for each lesso
 
 - [x] Centralised error middleware: `normalizeError` → `AppError` → response
 - [x] Structured logging with pino and pino-http
-- [ ] Finish the error middleware: the Zod case `return`, Postgres `23505` → 409, body-parser errors
-- [ ] Error handler logs through `req.log`; `listen()` uses the logger
-- [ ] Test suite passing again
+- [x] Finish the error middleware: the Zod case `return`, Postgres `23505` → 409, body-parser errors
+- [x] Error handler logs through `req.log`; `listen()` uses the logger
+- [x] Test suite passing again
 - [ ] CI with GitHub Actions: typecheck, lint and tests on every push (TD-019)
+  - [ ] Start minimal: two parallel jobs (`api`, `web`) running typecheck, lint, build and coverage
+  - [ ] Build it up in layers, a WHIL entry each: npm caching → status badge → branch protection on `main` that _requires_ the check → a Node version matrix
+  - [ ] Hooks by hand first (`git config core.hooksPath .githooks`) before reaching for Husky + lint-staged (principle 1)
+  - [ ] Keep hooks fast (format/lint staged files only); CI stays the authoritative gate, not the hook
 - [ ] Integration tests against a real Postgres (Testcontainers), not only mocks (TD-020)
+  - [ ] Runs in CI with no `services:` block — Docker is preinstalled on GitHub runners, Testcontainers spins Postgres up itself
 - [ ] Record the logging decision (TD-023) and the error contract (TD-018)
 
 ## Phase 2: Security
@@ -95,6 +100,28 @@ Tick items off as they're done, and write a [WHIL](WHIL.md) entry for each lesso
 - [ ] Multi-stage Docker builds
 - [ ] Secrets handling
 - [ ] Optional: deployment to a VPS
+
+---
+
+## Managed services to try (free tiers)
+
+Use these to get familiar with the managed equivalent of each topic — but only **after** the hand-built, Docker Compose version, so the service doesn't hide the mechanics it's meant to teach (principle 1). Spin each one up in the phase it belongs to, not all at once.
+
+| Topic (phase)                     | Local, build first            | Free cloud tier to try after                             | What the managed version teaches    |
+| --------------------------------- | ----------------------------- | -------------------------------------------------------- | ----------------------------------- |
+| CI (Phase 1)                      | —                             | GitHub Actions (unlimited mins public, 2,000/mo private) | the pipeline itself                 |
+| Coverage (Phase 1)                | vitest coverage               | Codecov (free on public repos)                           | coverage badge, PR gating           |
+| Integration tests (TD-020)        | Testcontainers in Docker      | Neon / Supabase free Postgres                            | managed Postgres, DB branching      |
+| Redis + leaderboard (Phase 4)     | Redis in Compose              | Upstash (free serverless Redis)                          | serverless Redis, connection models |
+| Images / object storage (Phase 4) | MinIO in Compose              | Cloudflare R2 (10 GB free, no egress)                    | presigned URLs on a real S3 API     |
+| Metrics + tracing (Phase 6)       | Prometheus / Grafana / Jaeger | Grafana Cloud free, or Honeycomb (20M events/mo)         | managed observability, OTel export  |
+| Container images (Phase 7)        | local `docker build`          | ghcr.io (GitHub Container Registry, free)                | registry auth, publishing from CI   |
+| Deployment (Phase 7)              | —                             | Fly.io / Render free tiers                               | a real deploy pipeline from Actions |
+| Load testing (principle 3)        | k6 locally                    | Grafana Cloud k6 free tier                               | distributed load, cloud dashboards  |
+
+**Adopt now (Phase 1):** GitHub Actions for the real gate, and Codecov for a coverage badge if the repo is public. Defer the rest to its phase.
+
+**Caveat:** a few of these (Supabase auth, managed Redis) can _hide_ the exact mechanics a phase is trying to teach — e.g. Phase 2 auth or the hand-written token bucket. Reach for them as the "then use the managed service" step, never instead of the hand-built one.
 
 ---
 

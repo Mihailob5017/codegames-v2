@@ -96,15 +96,24 @@ const asDatabaseError = (err: unknown): DatabaseError | undefined => {
 	return undefined;
 };
 
-const asClientHttpStatus = (err: unknown): number | undefined => {
-	if (!(err instanceof Error)) return undefined;
-	const status =
-		(err as { statusCode?: unknown }).statusCode ??
-		(err as { status?: unknown }).status;
-	return typeof status === "number" && status >= 400 && status < 500
-		? status
-		: undefined;
+const isDatabaseError = (err: unknown): DatabaseError | null => {
+	if (err instanceof DatabaseError) return err;
+
+	if (err instanceof Error && err.cause instanceof DatabaseError)
+		return err.cause;
+
+	return null;
 };
+
+// const asClientHttpStatus = (err: unknown): number | undefined => {
+// 	if (!(err instanceof Error)) return undefined;
+// 	const status =
+// 		(err as { statusCode?: unknown }).statusCode ??
+// 		(err as { status?: unknown }).status;
+// 	return typeof status === "number" && status >= 400 && status < 500
+// 		? status
+// 		: undefined;
+// };
 
 const normalizeError = (err: unknown): AppError => {
 	if (err instanceof AppError) return err;
@@ -112,25 +121,27 @@ const normalizeError = (err: unknown): AppError => {
 	if (err instanceof z.ZodError) {
 		return new AppError("VALIDATION_ERROR", {
 			message: "Invalid request data",
-			details: err.issues.map((issue) => ({
-				path: issue.path,
-				message: issue.message,
-			})),
+			details: z.prettifyError(err),
 			cause: err,
 		});
 	}
 
-	const dbError = asDatabaseError(err);
+	const dbError = isDatabaseError(err);
 	if (dbError) {
-		const errorCode = PG_ERROR_MAP[dbError.code ?? ""] ?? "INTERNAL_ERROR";
+		const errorCode = dbError.code
+			? PG_ERROR_MAP[dbError.code]
+			: "INTERNAL_ERROR";
+
+		const dbErrorDetails = (
+			dbError: DatabaseError,
+		): Record<string, any> | null => {
+			if (errorCode === "INTERNAL_ERROR") return null;
+			return { constraint: dbError.constraint, column: dbError.column };
+		};
 
 		return new AppError(errorCode, {
 			message: `Database error: ${dbError.message}`,
-			details:
-				// Only include constraint and column details if the error is not internal
-				errorCode === "INTERNAL_ERROR"
-					? undefined
-					: { constraint: dbError.constraint, column: dbError.column },
+			details: dbErrorDetails(dbError),
 			cause: err,
 		});
 	}
