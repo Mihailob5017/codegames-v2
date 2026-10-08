@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ExpressServer from "../config/express.config.ts";
 import type { User } from "../db/schema.ts";
 import { AdminRepository } from "./admin.repository.ts";
+import adminRouter from "./admin.route.ts";
 
 // Replace the DB boundary so the controller and service run for real without
 // importing db.config.ts (which needs DATABASE_URL) or touching a database.
@@ -16,11 +17,14 @@ vi.mock(import("./admin.repository.ts"), () => ({
 	},
 }));
 
-const app = new ExpressServer({
-	PORT: 0,
-	NODE_ENV: "test",
-	DATABASE_URL: "postgresql://unused@localhost/unused",
-}).getApp();
+const app = new ExpressServer(
+	{
+		PORT: 0,
+		NODE_ENV: "test",
+		DATABASE_URL: "postgresql://unused@localhost/unused",
+	},
+	[adminRouter],
+).getApp();
 
 // Errors a handler raises after (or instead of) responding never reach the client,
 // e.g. "headers already sent" from a double response. Capture them so tests can assert on them.
@@ -119,7 +123,7 @@ describe(`POST ${USERS}`, () => {
 			.send({ ...validUser(), username: "ab", email: "nope" });
 
 		expect(res.status).toBe(400);
-		expect(res.body.errors).toEqual(
+		expect(res.body.details).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					path: ["username"],
@@ -131,7 +135,7 @@ describe(`POST ${USERS}`, () => {
 				}),
 			]),
 		);
-		expect(res.body.errors).toHaveLength(2);
+		expect(res.body.details).toHaveLength(2);
 		expect(AdminRepository.createUser).not.toHaveBeenCalled();
 		expect(pipelineErrors).toEqual([]);
 	});
@@ -140,7 +144,7 @@ describe(`POST ${USERS}`, () => {
 		const res = await request(app).post(USERS);
 
 		expect(res.status).toBe(400);
-		expect(res.body.errors).toBeInstanceOf(Array);
+		expect(res.body.details).toBeInstanceOf(Array);
 	});
 
 	it("responds 400 when the body is not JSON", async () => {
@@ -160,7 +164,10 @@ describe(`POST ${USERS}`, () => {
 
 		expect(res.status).toBe(400);
 		expect(res.headers["content-type"]).toMatch(/application\/json/);
-		expect(res.body).toEqual({ error: expect.any(String) });
+		expect(res.body).toMatchObject({
+			code: "VALIDATION_ERROR",
+			statusCode: 400,
+		});
 		expect(res.text).not.toMatch(/at .+\.(js|ts):\d+/);
 	});
 
@@ -170,7 +177,10 @@ describe(`POST ${USERS}`, () => {
 			.send({ ...validUser(), firstName: "a".repeat(200 * 1024) });
 
 		expect(res.status).toBe(413);
-		expect(res.body).toEqual({ error: expect.any(String) });
+		expect(res.body).toMatchObject({
+			code: "CONTENT_TOO_LARGE",
+			statusCode: 413,
+		});
 	});
 
 	it("responds 500 with a generic message and does not leak internal error details", async () => {
@@ -181,11 +191,10 @@ describe(`POST ${USERS}`, () => {
 		const res = await request(app).post(USERS).send(validUser());
 
 		expect(res.status).toBe(500);
-		expect(res.body).toEqual({ error: "Internal server error" });
+		expect(res.body).toEqual(internalErrorBody());
 		expect(res.text).not.toContain("secret");
 		expect(pipelineErrors).toEqual([]);
 	});
-
 });
 
 // The public representation of storedUser(): what every endpoint may expose.
@@ -200,6 +209,31 @@ const publicUser = {
 };
 
 const hiddenFields = ["password", "isAdmin", "createdAt", "updatedAt"];
+
+const internalErrorBody = () => ({
+	code: "INTERNAL_ERROR",
+	statusCode: 500,
+	response: "An internal server error occurred. Please try again later.",
+	message: "An unexpected error occurred",
+	timestamp: expect.any(String),
+});
+
+const notFoundErrorBody = () => ({
+	code: "NOT_FOUND",
+	statusCode: 404,
+	response: "Resource with that ID not found",
+	message: "User with the given ID doesn't exist",
+	timestamp: expect.any(String),
+});
+
+const invalidUserIdErrorBody = () => ({
+	code: "VALIDATION_ERROR",
+	statusCode: 400,
+	response: "Some fields are invalid.Please check them and try again",
+	message: "Invalid user ID",
+	details: { fields: ["id"], reason: "User ID must be a positive integer" },
+	timestamp: expect.any(String),
+});
 
 describe(`GET ${USERS}`, () => {
 	it("responds 200 with the public fields of every user", async () => {
@@ -238,7 +272,7 @@ describe(`GET ${USERS}`, () => {
 		const res = await request(app).get(USERS);
 
 		expect(res.status).toBe(500);
-		expect(res.body).toEqual({ error: expect.any(String) });
+		expect(res.body).toEqual(internalErrorBody());
 		expect(res.text).not.toContain("secret");
 	});
 });
@@ -261,7 +295,7 @@ describe(`GET ${USERS}/:id`, () => {
 		const res = await request(app).get(userById(999));
 
 		expect(res.status).toBe(404);
-		expect(res.body).toEqual({ error: "User not found" });
+		expect(res.body).toEqual(notFoundErrorBody());
 	});
 
 	it.each(["abc", "0", "-1", "1.5"])(
@@ -270,7 +304,7 @@ describe(`GET ${USERS}/:id`, () => {
 			const res = await request(app).get(userById(id));
 
 			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: "A valid user ID is required" });
+			expect(res.body).toEqual(invalidUserIdErrorBody());
 			expect(AdminRepository.getUserById).not.toHaveBeenCalled();
 		},
 	);
@@ -283,7 +317,7 @@ describe(`GET ${USERS}/:id`, () => {
 		const res = await request(app).get(userById(1));
 
 		expect(res.status).toBe(500);
-		expect(res.body).toEqual({ error: "Internal server error" });
+		expect(res.body).toEqual(internalErrorBody());
 		expect(res.text).not.toContain("secret");
 	});
 });
@@ -305,7 +339,7 @@ describe(`DELETE ${USERS}/:id`, () => {
 			const res = await request(app).delete(userById(id));
 
 			expect(res.status).toBe(400);
-			expect(res.body).toEqual({ error: "A valid user ID is required" });
+			expect(res.body).toEqual(invalidUserIdErrorBody());
 			expect(AdminRepository.deleteUser).not.toHaveBeenCalled();
 		},
 	);
@@ -326,12 +360,9 @@ describe("unknown routes", () => {
 		// The old verb-style paths were replaced by REST nouns (TD-018).
 		"/api/v1/admin/get-users",
 		"/api/v1/admin/get-user?id=1",
-	])(
-		"responds 404 for %s",
-		async (path) => {
-			const res = await request(app).get(path);
+	])("responds 404 for %s", async (path) => {
+		const res = await request(app).get(path);
 
-			expect(res.status).toBe(404);
-		},
-	);
+		expect(res.status).toBe(404);
+	});
 });

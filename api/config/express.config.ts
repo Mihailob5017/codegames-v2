@@ -18,7 +18,6 @@ class ExpressServer {
 		this.setupRoutes(routes);
 		this.setupErrorHandling();
 	}
-
 	public getApp(): Express {
 		return this.app;
 	}

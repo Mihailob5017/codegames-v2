@@ -287,7 +287,7 @@ export const getAllUsers: Controller = async (req, res) => {
 
 The `else` branch above was dead code anyway: it only ran if something literally threw `undefined`.
 
-**When a `catch` is still right:** only when that layer adds information nobody else has. E.g. the service turning "repository returned nothing" into `NOT_FOUND`. Catching just to rewrap is worse than not catching: my old `AdminService.deleteUser` turned *every* DB failure, outages included, into "User not found".
+**When a `catch` is still right:** only when that layer adds information nobody else has. E.g. the service turning "repository returned nothing" into `NOT_FOUND`. Catching just to rewrap is worse than not catching: my old `AdminService.deleteUser` turned _every_ DB failure, outages included, into "User not found".
 
 **Caveats:**
 
@@ -325,12 +325,73 @@ A code says **what went wrong from the client's point of view**, not which libra
 
 **3. Respond.** The handler does the side effects, in this order: check `res.headersSent` first, then normalize, log, any extra actions (alerts later), and send. Each field has one audience:
 
-| Field                        | Who sees it         | Where           |
-| ---------------------------- | ------------------- | --------------- |
-| `response`                   | the user            | the UI          |
-| `code`, `message`, `details` | the FE dev          | the network tab |
-| `cause`, `stack`, method/URL | me                  | the server log  |
+| Field                        | Who sees it | Where           |
+| ---------------------------- | ----------- | --------------- |
+| `response`                   | the user    | the UI          |
+| `code`, `message`, `details` | the FE dev  | the network tab |
+| `cause`, `stack`, method/URL | me          | the server log  |
 
 `toResponseBody(appError)` is an **allowlist**: `cause` and `stack` aren't in its return type, so they can't leak to the browser by accident.
 
 **Lesson from a bug on the way:** my Zod branch did `new AppError(...)` without `return`, so every validation error fell through to a 500. Nothing showed it, because nothing was logged yet. Logging belongs in stage 3 from day one, even if it's only a temporary `console.error(appError)`.
+
+### 8.10.2026
+
+#### A duplicate insert returned 500, because Drizzle hides the real error one level down
+
+Inserting a duplicate email came back as a generic `500` instead of the `409` I expected. My error middleware already had a branch for it:
+
+```ts
+if (err instanceof DatabaseError) {
+	/* map 23505 → CONFLICT */
+}
+```
+
+The check was simply never true. **Drizzle doesn't let the driver error through untouched — it wraps it in its own `DrizzleQueryError`** (see `drizzle-orm/pg-core/session.js`, `throw new DrizzleQueryError(query, params, e)`). The thing my handler received was the wrapper; the real `pg` `DatabaseError`, the one carrying the SQLSTATE code, was sitting on `.cause`. So `err instanceof DatabaseError` was `false` and everything fell through to the `INTERNAL_ERROR` default.
+
+The fix is to look for the pg error whether it arrives bare or wrapped:
+
+```ts
+const asDatabaseError = (err: unknown): DatabaseError | undefined => {
+	if (err instanceof DatabaseError) return err;
+	if (err instanceof Error && err.cause instanceof DatabaseError)
+		return err.cause;
+	return undefined;
+};
+```
+
+Handling both shapes matters for portability: a query run outside Drizzle (a migration, raw `pool.query`) still throws a bare `DatabaseError`, so I don't want to special-case only the wrapped form.
+
+#### Map SQLSTATE codes, not driver messages
+
+The stable contract is the Postgres **SQLSTATE** code on `DatabaseError.code` — `23505` unique violation, `23503` FK violation, `23502` not-null. I map those to my own `AppError` codes and default anything unrecognised to `INTERNAL_ERROR` (500), so an unanticipated DB failure never gets dressed up as a friendly 4xx:
+
+```ts
+const PG_ERROR_MAP: Record<string, ErrorCode> = {
+	"23505": "CONFLICT",
+	"23503": "VALIDATION_ERROR",
+	"23502": "VALIDATION_ERROR",
+};
+const errorCode = PG_ERROR_MAP[dbError.code ?? ""] ?? "INTERNAL_ERROR";
+```
+
+#### Would it be simpler to just use the Drizzle error?
+
+I was tempted to branch on `DrizzleQueryError` instead of unwrapping to the pg error — but it doesn't help. `DrizzleQueryError` only carries `query`, `params`, `cause` and a generic message; the `code`, `constraint` and `column` I actually need live **only** on the pg `DatabaseError`. I'd still have to reach into `.cause` to get the SQLSTATE code, so I'd be doing the same unwrapping from the other direction and ending up with weaker data. The wrapping is also a Drizzle implementation detail that has changed across versions, whereas pg's `DatabaseError` + SQLSTATE codes are a documented, stable contract.
+
+#### Never hand a raw DB error to the client
+
+Postgres errors are chatty. `DatabaseError.detail` in particular echoes the offending row values (`Key (email)=(a@b.com) already exists`), so returning it verbatim is an information leak. I only expose `constraint`/`column` for the mapped 4xx cases, drop details entirely for `INTERNAL_ERROR`, and keep the full error on `cause` for the server log:
+
+```ts
+return new AppError(errorCode, {
+	message: `Database error: ${dbError.message}`,
+	details:
+		errorCode === "INTERNAL_ERROR"
+			? undefined
+			: { constraint: dbError.constraint, column: dbError.column },
+	cause: err,
+});
+```
+
+**One honest caveat:** even `dbError.message` is driver text. It isn't row data, but if I ever want the response to be fully driver-agnostic I should swap it for a static message and let the log keep the original.

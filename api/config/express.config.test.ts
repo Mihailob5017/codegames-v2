@@ -1,6 +1,7 @@
 import { createServer } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ExpressServer from "./express.config.ts";
+import adminRouter from "../admin/admin.route.ts";
 
 // The lifecycle tests never reach the database; stubbing the repository keeps
 // db.config.ts (which needs DATABASE_URL at import time) out of the module graph.
@@ -33,11 +34,14 @@ describe("ExpressServer lifecycle", () => {
 		vi.spyOn(console, "log").mockImplementation(() => {});
 		const port = await getFreePort();
 		baseUrl = `http://127.0.0.1:${port}`;
-		server = new ExpressServer({
-			PORT: port,
-			NODE_ENV: "test",
-			DATABASE_URL: "postgresql://unused@localhost/unused",
-		});
+		server = new ExpressServer(
+			{
+				PORT: port,
+				NODE_ENV: "test",
+				DATABASE_URL: "postgresql://unused@localhost/unused",
+			},
+			[adminRouter],
+		);
 	});
 
 	afterEach(async () => {

@@ -1,4 +1,5 @@
 import { type Request, type Response, type NextFunction } from "express";
+import { DatabaseError } from "pg";
 import { type HttpStatusCodes } from "../types/shared.types.ts";
 import { timestamp } from "../helpers/util.ts";
 import { z } from "zod";
@@ -14,9 +15,30 @@ const ERRORS = {
 	},
 	NOT_FOUND: {
 		statusCode: 404,
-		response: "Resource with that ID not found", // TODO: Think of something more robust
+		response: "Resource with that ID not found",
+	},
+	CONFLICT: {
+		statusCode: 409,
+		response: "Resource already exists",
+	},
+	CONTENT_TOO_LARGE: {
+		statusCode: 413,
+		response: "The request body is too large.",
 	},
 } as const;
+
+const PG_ERROR_MAP: Record<string, ErrorCode> = {
+	"23505": "CONFLICT",
+	"23503": "VALIDATION_ERROR",
+	"23502": "VALIDATION_ERROR",
+};
+
+// Express's body parser throws errors tagged with an HTTP status (malformed JSON
+// → 400, oversized body → 413). Map the 4xx ones instead of hiding them as 500s.
+const HTTP_STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
+	400: "VALIDATION_ERROR",
+	413: "CONTENT_TOO_LARGE",
+};
 
 export type ErrorCode = keyof typeof ERRORS;
 
@@ -67,13 +89,57 @@ const toResponseBody = (error: AppError): ErrorResponseBody => {
 	return responseBody;
 };
 
+const asDatabaseError = (err: unknown): DatabaseError | undefined => {
+	if (err instanceof DatabaseError) return err;
+	if (err instanceof Error && err.cause instanceof DatabaseError)
+		return err.cause;
+	return undefined;
+};
+
+const asClientHttpStatus = (err: unknown): number | undefined => {
+	if (!(err instanceof Error)) return undefined;
+	const status =
+		(err as { statusCode?: unknown }).statusCode ??
+		(err as { status?: unknown }).status;
+	return typeof status === "number" && status >= 400 && status < 500
+		? status
+		: undefined;
+};
+
 const normalizeError = (err: unknown): AppError => {
 	if (err instanceof AppError) return err;
 
 	if (err instanceof z.ZodError) {
-		new AppError("VALIDATION_ERROR", {
-			message: err.message,
-			details: { ...z.flattenError(err) },
+		return new AppError("VALIDATION_ERROR", {
+			message: "Invalid request data",
+			details: err.issues.map((issue) => ({
+				path: issue.path,
+				message: issue.message,
+			})),
+			cause: err,
+		});
+	}
+
+	const dbError = asDatabaseError(err);
+	if (dbError) {
+		const errorCode = PG_ERROR_MAP[dbError.code ?? ""] ?? "INTERNAL_ERROR";
+
+		return new AppError(errorCode, {
+			message: `Database error: ${dbError.message}`,
+			details:
+				// Only include constraint and column details if the error is not internal
+				errorCode === "INTERNAL_ERROR"
+					? undefined
+					: { constraint: dbError.constraint, column: dbError.column },
+			cause: err,
+		});
+	}
+
+	const httpStatus = asClientHttpStatus(err);
+	if (httpStatus) {
+		return new AppError(HTTP_STATUS_TO_CODE[httpStatus] ?? "VALIDATION_ERROR", {
+			message: "Request could not be processed",
+			cause: err,
 		});
 	}
 

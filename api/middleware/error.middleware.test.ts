@@ -1,85 +1,153 @@
-import express from "express";
+import express, { type ErrorRequestHandler } from "express";
+import { DatabaseError } from "pg";
+import pino from "pino";
+import { pinoHttp } from "pino-http";
 import request from "supertest";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { errorHandler } from "./error.middleware.ts";
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { AppError, errorHandler } from "./error.middleware.ts";
 
-const httpError = (status: number, message: string, expose: boolean) =>
-	Object.assign(new Error(message), { status, expose });
+// Build a real pg DatabaseError so the middleware's `instanceof` check matches.
+const makeDbError = (
+	code: string,
+	fields: { constraint?: string; column?: string } = {},
+) => {
+	const error = new DatabaseError(
+		"duplicate key value violates unique constraint",
+		100,
+		"error",
+	);
+	return Object.assign(error, { code, ...fields });
+};
 
-// A throwaway app whose routes fail in controlled ways, so the handler is tested in isolation.
 const buildApp = () => {
 	const app = express();
+	const forwardedErrors: unknown[] = [];
+	app.use(pinoHttp({ logger: pino({ level: "silent" }) }));
+	app.get("/not-found", () => {
+		throw new AppError("NOT_FOUND", { message: "User does not exist" });
+	});
 	app.get("/unexpected", () => {
-		throw new Error("db password is hunter2");
+		throw new Error("database password is private");
 	});
-	app.get("/client-exposed", () => {
-		throw httpError(422, "Unprocessable thing", true);
-	});
-	app.get("/client-hidden", () => {
-		throw httpError(403, "internal policy id 42", false);
-	});
-	app.get("/non-http-status", () => {
-		throw httpError(302, "redirect-ish", true);
-	});
-	app.get("/after-response", (_req, res) => {
+	app.get("/after-response", (_req, res, next) => {
 		res.status(200).json({ ok: true });
-		throw new Error("late failure");
+		next(new Error("response already sent"));
+	});
+	app.get("/invalid-body", () => {
+		z.object({ email: z.email() }).parse({ email: "not-an-email" });
+	});
+	app.get("/duplicate-wrapped", () => {
+		// Mirrors how Drizzle wraps the driver error: pg error lives on `cause`.
+		const dbError = makeDbError("23505", { constraint: "users_email_unique" });
+		throw new Error("Failed query: insert into users", { cause: dbError });
+	});
+	app.get("/duplicate-direct", () => {
+		throw makeDbError("23505", { constraint: "users_email_unique" });
+	});
+	app.get("/db-unknown", () => {
+		throw new Error("Failed query", { cause: makeDbError("99999") });
 	});
 	app.use(errorHandler);
-	return app;
+	const captureError: ErrorRequestHandler = (error, _req, _res, _next) => {
+		forwardedErrors.push(error);
+	};
+	app.use(captureError);
+	return { app, forwardedErrors };
 };
 
 describe("errorHandler", () => {
-	let consoleError: ReturnType<typeof vi.spyOn>;
+	it("serializes an AppError with its status and public details", async () => {
+		const { app } = buildApp();
 
-	beforeEach(() => {
-		consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+		const response = await request(app).get("/not-found");
+
+		expect(response.status).toBe(404);
+		expect(response.body).toEqual({
+			code: "NOT_FOUND",
+			statusCode: 404,
+			response: "Resource with that ID not found",
+			message: "User does not exist",
+			timestamp: expect.any(String),
+		});
 	});
 
-	it("responds 500 with a generic JSON body for unexpected errors", async () => {
-		const res = await request(buildApp()).get("/unexpected");
+	it("hides unexpected error details from the response", async () => {
+		const { app } = buildApp();
 
-		expect(res.status).toBe(500);
-		expect(res.headers["content-type"]).toMatch(/application\/json/);
-		expect(res.body).toEqual({ error: "Internal server error" });
-		expect(res.text).not.toContain("hunter2");
+		const response = await request(app).get("/unexpected");
+
+		expect(response.status).toBe(500);
+		expect(response.body).toEqual({
+			code: "INTERNAL_ERROR",
+			statusCode: 500,
+			response: "An internal server error occurred. Please try again later.",
+			message: "An unexpected error occurred",
+			timestamp: expect.any(String),
+		});
+		expect(response.text).not.toContain("private");
 	});
 
-	it("logs unexpected errors server-side so they are not silently swallowed", async () => {
-		await request(buildApp()).get("/unexpected");
+	it("forwards errors that occur after the response was sent", async () => {
+		const { app, forwardedErrors } = buildApp();
 
-		expect(consoleError).toHaveBeenCalledWith(
-			expect.objectContaining({ message: "db password is hunter2" }),
+		const response = await request(app).get("/after-response");
+
+		expect(response.status).toBe(200);
+		expect(response.body).toEqual({ ok: true });
+		expect(forwardedErrors).toHaveLength(1);
+		const forwardedError = forwardedErrors[0];
+		expect(forwardedError).toBeInstanceOf(Error);
+		if (forwardedError instanceof Error) {
+			expect(forwardedError.message).toBe("response already sent");
+		}
+	});
+
+	it("maps a ZodError to a 400 validation error", async () => {
+		const { app } = buildApp();
+
+		const response = await request(app).get("/invalid-body");
+
+		expect(response.status).toBe(400);
+		expect(response.body).toMatchObject({
+			code: "VALIDATION_ERROR",
+			statusCode: 400,
+			message: "Invalid request data",
+		});
+		expect(response.body.details).toContainEqual(
+			expect.objectContaining({ path: ["email"] }),
 		);
 	});
 
-	it("passes through the status and message of exposable client errors", async () => {
-		const res = await request(buildApp()).get("/client-exposed");
+	it("maps a Drizzle-wrapped unique violation to a 409 conflict", async () => {
+		const { app } = buildApp();
 
-		expect(res.status).toBe(422);
-		expect(res.body).toEqual({ error: "Unprocessable thing" });
-		expect(consoleError).not.toHaveBeenCalled();
+		const response = await request(app).get("/duplicate-wrapped");
+
+		expect(response.status).toBe(409);
+		expect(response.body).toMatchObject({
+			code: "CONFLICT",
+			statusCode: 409,
+			details: { constraint: "users_email_unique" },
+		});
 	});
 
-	it("keeps the client status but hides the message when it is not exposable", async () => {
-		const res = await request(buildApp()).get("/client-hidden");
+	it("maps a directly-thrown pg unique violation to a 409 conflict", async () => {
+		const { app } = buildApp();
 
-		expect(res.status).toBe(403);
-		expect(res.body).toEqual({ error: "Bad request" });
+		const response = await request(app).get("/duplicate-direct");
+
+		expect(response.status).toBe(409);
+		expect(response.body.code).toBe("CONFLICT");
 	});
 
-	it("treats a non-4xx status as an unexpected error", async () => {
-		const res = await request(buildApp()).get("/non-http-status");
+	it("maps an unmapped pg error code to a 500 without leaking details", async () => {
+		const { app } = buildApp();
 
-		expect(res.status).toBe(500);
-		expect(res.body).toEqual({ error: "Internal server error" });
-	});
+		const response = await request(app).get("/db-unknown");
 
-	it("leaves the original response intact when the error happens after it was sent", async () => {
-		const res = await request(buildApp()).get("/after-response");
-
-		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ ok: true });
-		expect(consoleError).not.toHaveBeenCalled();
+		expect(response.status).toBe(500);
+		expect(response.body.code).toBe("INTERNAL_ERROR");
+		expect(response.body.details).toBeUndefined();
 	});
 });

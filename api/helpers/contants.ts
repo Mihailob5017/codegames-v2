@@ -14,5 +14,6 @@ export const HTTPStatusCodes: HttpStatusCodes = {
 	FORBIDDEN: 403,
 	NOT_FOUND: 404,
 	CONFLICT: 409,
+	CONTENT_TOO_LARGE: 413,
 	INTERNAL_SERVER_ERROR: 500,
 };

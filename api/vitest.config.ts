@@ -4,7 +4,7 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		include: ["**/*.test.ts"],
-		exclude: ["node_modules", "dist"],
+		exclude: ["node_modules", "dist", "logs/**"],
 		// Every test starts from a clean slate: no leaked spies, mocks or env stubs.
 		restoreMocks: true,
 		unstubEnvs: true,

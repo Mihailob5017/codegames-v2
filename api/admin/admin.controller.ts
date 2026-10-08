@@ -10,11 +10,7 @@ export const healthCheck: Controller = async (req, res, next) => {
 
 export const createUser: Controller = async (req, res, next) => {
 	const validatedUser = createUserValidation(req.body);
-	if (!validatedUser) {
-		throw new AppError("VALIDATION_ERROR", {
-			message: `Invalid user data`,
-		});
-	}
+
 	const createdUser = await AdminService.createUser(validatedUser);
 
 	res.status(HTTPStatusCodes.CREATED).json(createdUser);
