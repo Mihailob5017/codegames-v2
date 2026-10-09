@@ -27,7 +27,7 @@ const ERRORS = {
 	},
 } as const;
 
-const PG_ERROR_MAP: Record<string, ErrorCode> = {
+const PG_ERROR_MAP: Partial<Record<string, ErrorCode>> = {
 	"23505": "CONFLICT",
 	"23503": "VALIDATION_ERROR",
 	"23502": "VALIDATION_ERROR",
@@ -115,22 +115,42 @@ const isDatabaseError = (err: unknown): DatabaseError | null => {
 // 		: undefined;
 // };
 
+const isClientHttpStatus = (err: unknown): number | null => {
+	if (!(err instanceof Error)) return null;
+
+	// `unknown`, not `number`: libraries set these fields however they like.
+	const { statusCode, status } = err as {
+		statusCode?: unknown;
+		status?: unknown;
+	};
+	const httpStatus = statusCode ?? status;
+
+	if (typeof httpStatus !== "number") return null;
+
+	const isClientError = httpStatus >= 400 && httpStatus < 500;
+	if (!isClientError) return null;
+
+	return httpStatus;
+};
+
 const normalizeError = (err: unknown): AppError => {
 	if (err instanceof AppError) return err;
 
 	if (err instanceof z.ZodError) {
 		return new AppError("VALIDATION_ERROR", {
 			message: "Invalid request data",
-			details: z.prettifyError(err),
+			details: err.issues.map((issue) => ({
+				path: issue.path,
+				message: issue.message,
+			})),
 			cause: err,
 		});
 	}
 
 	const dbError = isDatabaseError(err);
 	if (dbError) {
-		const errorCode = dbError.code
-			? PG_ERROR_MAP[dbError.code]
-			: "INTERNAL_ERROR";
+		const errorCode =
+			(dbError.code && PG_ERROR_MAP[dbError.code]) || "INTERNAL_ERROR";
 
 		const dbErrorDetails = (
 			dbError: DatabaseError,
@@ -146,12 +166,15 @@ const normalizeError = (err: unknown): AppError => {
 		});
 	}
 
-	const httpStatus = asClientHttpStatus(err);
-	if (httpStatus) {
-		return new AppError(HTTP_STATUS_TO_CODE[httpStatus] ?? "VALIDATION_ERROR", {
-			message: "Request could not be processed",
-			cause: err,
-		});
+	const errorStatus = isClientHttpStatus(err);
+	if (errorStatus) {
+		return new AppError(
+			HTTP_STATUS_TO_CODE[errorStatus] ?? "VALIDATION_ERROR",
+			{
+				message: "Request could not be processed",
+				cause: err,
+			},
+		);
 	}
 
 	return new AppError("INTERNAL_ERROR", {

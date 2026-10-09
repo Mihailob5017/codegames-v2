@@ -148,6 +148,6 @@ describe("errorHandler", () => {
 
 		expect(response.status).toBe(500);
 		expect(response.body.code).toBe("INTERNAL_ERROR");
-		expect(response.body.details).toBeUndefined();
+		expect(response.body.details).toBeNull();
 	});
 });
