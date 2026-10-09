@@ -1,8 +1,7 @@
 import type { CreateUserInput } from "./admin.validation.ts";
 import type { User } from "../db/schema.ts";
 import { AdminRepository } from "./admin.repository.ts";
-import { AppError } from "../middleware/error.middleware.ts";
-import { HTTPStatusCodes } from "../helpers/contants.ts";
+import { AppError } from "../shared/app-error.shared.ts";
 
 // The only user fields the API may expose; password, isAdmin and timestamps stay server-side.
 type UserResponse = Pick<

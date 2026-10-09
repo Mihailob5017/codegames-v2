@@ -5,7 +5,8 @@ import { pinoHttp } from "pino-http";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AppError, errorHandler } from "./error.middleware.ts";
+import { AppError } from "../shared/app-error.shared.ts";
+import { errorHandler, unknownRouteHandler } from "./error.middleware.ts";
 
 // Build a real pg DatabaseError so the middleware's `instanceof` check matches.
 const makeDbError = (
@@ -48,6 +49,7 @@ const buildApp = () => {
 	app.get("/db-unknown", () => {
 		throw new Error("Failed query", { cause: makeDbError("99999") });
 	});
+	app.use(unknownRouteHandler);
 	app.use(errorHandler);
 	const captureError: ErrorRequestHandler = (error, _req, _res, _next) => {
 		forwardedErrors.push(error);
@@ -149,5 +151,21 @@ describe("errorHandler", () => {
 		expect(response.status).toBe(500);
 		expect(response.body.code).toBe("INTERNAL_ERROR");
 		expect(response.body.details).toBeNull();
+	});
+
+	it("responds 404 with the JSON error shape for a route that does not exist", async () => {
+		const { app } = buildApp();
+
+		const response = await request(app).post("/does-not-exist");
+
+		expect(response.status).toBe(404);
+		expect(response.headers["content-type"]).toMatch(/application\/json/);
+		expect(response.body).toEqual({
+			code: "NOT_FOUND",
+			statusCode: 404,
+			response: "Resource with that ID not found",
+			message: "The requested route does not exist",
+			timestamp: expect.any(String),
+		});
 	});
 });

@@ -1,7 +1,7 @@
 import type { Controller } from "../types/shared.types.ts";
 import { createUserValidation } from "./admin.validation.ts";
 import { AdminService } from "./admin.service.ts";
-import { AppError } from "../middleware/error.middleware.ts";
+import { AppError } from "../shared/app-error.shared.ts";
 import { HTTPStatusCodes } from "../helpers/contants.ts";
 
 export const healthCheck: Controller = async (req, res, next) => {

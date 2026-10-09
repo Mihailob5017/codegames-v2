@@ -360,9 +360,21 @@ describe("unknown routes", () => {
 		// The old verb-style paths were replaced by REST nouns (TD-018).
 		"/api/v1/admin/get-users",
 		"/api/v1/admin/get-user?id=1",
-	])("responds 404 for %s", async (path) => {
+	])("responds 404 with the JSON error shape for %s", async (path) => {
 		const res = await request(app).get(path);
 
 		expect(res.status).toBe(404);
+		expect(res.body).toMatchObject({
+			code: "NOT_FOUND",
+			statusCode: 404,
+			message: "The requested route does not exist",
+		});
+	});
+
+	it("responds 404 with the JSON error shape for an unknown method on a known path", async () => {
+		const res = await request(app).patch(USERS);
+
+		expect(res.status).toBe(404);
+		expect(res.body.code).toBe("NOT_FOUND");
 	});
 });

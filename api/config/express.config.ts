@@ -1,7 +1,10 @@
 import express from "express";
 import type { Express, Router } from "express";
 import type { EnvConfig } from "./env.config.ts";
-import { errorHandler } from "../middleware/error.middleware.ts";
+import {
+	errorHandler,
+	unknownRouteHandler,
+} from "../middleware/error.middleware.ts";
 import { pinoHttp } from "pino-http";
 import { customLogLevel, logger } from "./logger.config.ts";
 
@@ -31,6 +34,7 @@ class ExpressServer {
 		routes.forEach((route) => {
 			this.app.use(route);
 		});
+		this.app.use(unknownRouteHandler);
 	}
 
 	// Must be registered last so it receives errors from every route and middleware above.
