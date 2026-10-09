@@ -195,3 +195,11 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 - **Decision:** Remove Prisma from the repository. Use Drizzle ORM, with `drizzle-kit` for migrations, over the `pg` driver already present in the API.
 - **Alternatives considered:** Staying on the Prisma 8 RC (version-pairing churn on every bump); Prisma 7 (stable, but we would rather evaluate Drizzle now); hand-written SQL over `pg` (loses type-safe query building).
 - **Consequences:** The schema is authored in TypeScript (`api/db/schema.ts`) and `drizzle-kit` generates SQL migration files under `api/db/migrations/` that we review and commit; there is no client-generation step. PostgreSQL itself is unchanged. All `drizzle-kit` commands run inside the `api` container, driven by `db:*` scripts at the repo root.
+
+## TD-025: Cross-cutting concerns get their own folder
+
+- **Status:** Accepted
+- **Context:** Error handling had spread over five layer-named locations (`shared/`, `types/`, `helpers/contants.ts`, and two files in `middleware/`). Following one error from `throw` to response meant opening all of them, and `helpers/contants.ts` mixed error mappings with route constants. Authentication (TD-017) will raise the same question.
+- **Decision:** A cross-cutting concern with more than one file gets its own folder named after the concern, laid out like a domain (TD-008): `api/error/` holds `AppError`, the error catalogue, the types, the normalisation and the Express middleware, with tests next to each file. Domains import from it; it never imports from a domain. `shared/`, `helpers/` and `types/` remain for small utilities that belong to no single concern.
+- **Alternatives considered:** Keeping layer folders (`middleware/`, `types/`, `helpers/`) for shared code: familiar, but it scatters one concern across folders and contradicts TD-008. A single `error.middleware.ts`: fewer files, but it mixes pure mapping logic with Express wiring and grows with every new error source.
+- **Consequences:** Error handling is found in one place and its internals can change without touching callers, which import only `AppError` and the two handlers. The top-level `middleware/` folder is gone; future middleware lives with its concern (for example `auth/auth.middleware.ts`).

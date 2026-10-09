@@ -4,7 +4,7 @@ import type { EnvConfig } from "./env.config.ts";
 import {
 	errorHandler,
 	unknownRouteHandler,
-} from "../middleware/error.middleware.ts";
+} from "../error/error.middleware.ts";
 import { pinoHttp } from "pino-http";
 import { customLogLevel, logger } from "./logger.config.ts";
 

@@ -1,4 +1,4 @@
-import { ERRORS } from "../helpers/contants.ts";
+import type { ERRORS } from "./error.constants.ts";
 
 export type ErrorCode = keyof typeof ERRORS;
 

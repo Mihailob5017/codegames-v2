@@ -5,7 +5,7 @@ import { pinoHttp } from "pino-http";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AppError } from "../shared/app-error.shared.ts";
+import { AppError } from "./app-error.ts";
 import { errorHandler, unknownRouteHandler } from "./error.middleware.ts";
 
 // Build a real pg DatabaseError so the middleware's `instanceof` check matches.

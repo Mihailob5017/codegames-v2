@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 
 import { normalizeError, toResponseBody } from "./error.normalize.ts";
-import { AppError } from "../shared/app-error.shared.ts";
+import { AppError } from "./app-error.ts";
 
 export const errorHandler = (
 	err: unknown,

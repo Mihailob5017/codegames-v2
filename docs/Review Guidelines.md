@@ -90,9 +90,9 @@ The API follows **domain-first DDD** (TD-008). Check that new code fits it:
 
   A service that calls `db` directly is 🟠 Important drift: move the queries into a repository before more code depends on them.
 
-- **Dependencies point inward:** domains don't import each other's internals. Anything shared lives in `shared/`, `helpers/`, `middleware/` or `types/`.
+- **Dependencies point inward:** domains don't import each other's internals. Anything shared lives in `shared/`, `helpers/` or `types/`, and a cross-cutting concern with several files of its own gets its own folder, like `error/` (TD-025).
 - **Errors are centralised:**
-  - Services throw typed errors (e.g. `NotFoundError`, `ConflictError`, `ValidationError`), and `middleware/error.middleware.ts` maps them to status codes.
+  - Services throw typed errors (e.g. `NotFoundError`, `ConflictError`, `ValidationError`), and `error/error.middleware.ts` maps them to status codes.
   - Repeating `try/catch` + `res.status(500)` in every controller is drift. So is signalling errors with ad-hoc strings such as `{ cause: "invalid-id" }`.
   - Express 5 forwards rejected async handlers to the error middleware on its own.
 - **API conventions (TD-018):**
@@ -222,7 +222,7 @@ Severity definitions:
 | Validation                             | Every field: `min-1`, `min`, `max`, `max+1`; missing; wrong type; exact error messages; unknown keys stripped; trimming. Use `it.each` tables.                                                                                                                                                                                         |
 | Service                                | Business rules and the errors it throws. Mock the **repository** (or `db` module until repositories exist) with `vi.mock`; assert on results and thrown errors, not on how many times a query helper was called.                                                                                                                       |
 | HTTP (route + controller + middleware) | Through the real Express app: `new ExpressServer(env).getApp()` + `supertest`. Mock only the service/repository layer. Assert status code, response body shape, error shape, and that secrets (`password`) are **absent**. Use **literal paths** (`"/api/v1/admin/users/1"`), not the route constants: the URL is the public contract. |
-| Middleware                             | A throwaway Express app with routes that fail in controlled ways (see `middleware/error.middleware.test.ts`).                                                                                                                                                                                                                          |
+| Middleware                             | A throwaway Express app with routes that fail in controlled ways (see `error/error.middleware.test.ts`).                                                                                                                                                                                                                               |
 | Config                                 | `vi.stubEnv` + `vi.resetModules()` + dynamic import (see `config/env.config.test.ts`).                                                                                                                                                                                                                                                 |
 | React components                       | Render, then query by role, label or text the way a user would; interact with `@testing-library/user-event` (install it if needed). No snapshot tests and no testing of internal state.                                                                                                                                                |
 
@@ -276,5 +276,5 @@ Update this list as decisions are made.
   - `npm test`, `npm run test:api`, `npm run test:web`, `npm run test:coverage`
   - `npm run db:*` (runs inside Docker)
 - **Database:** Postgres in Docker, published to the host on `localhost:5433`.
-- **Error handling:** `api/middleware/error.middleware.ts`, registered last in `api/config/express.config.ts`.
+- **Error handling:** everything lives in `api/error/` (TD-025). `AppError` is in `app-error.ts`, the error catalogue in `error.constants.ts`, the mapping of unknown errors in `error.normalize.ts`, and the Express handlers in `error.middleware.ts`. `unknownRouteHandler` is registered after the routes and `errorHandler` last, in `api/config/express.config.ts`.
 - **Test helpers to reuse:** the `ExpressServer#getApp()` + supertest pattern in `admin/admin.route.test.ts`, which also captures errors raised after a response was sent (`pipelineErrors`).

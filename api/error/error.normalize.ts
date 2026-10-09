@@ -1,9 +1,9 @@
 import { DatabaseError } from "pg";
 import { z } from "zod";
 
-import { AppError } from "../shared/app-error.shared.ts";
-import { HTTP_STATUS_TO_CODE, PG_ERROR_MAP } from "../helpers/contants.ts";
-import type { ErrorResponseBody } from "../types/error.types.ts";
+import { AppError } from "./app-error.ts";
+import { HTTP_STATUS_TO_CODE, PG_ERROR_MAP } from "./error.constants.ts";
+import type { ErrorResponseBody } from "./error.types.ts";
 
 const toResponseBody = (error: AppError): ErrorResponseBody => {
 	const responseBody: ErrorResponseBody = {

@@ -1,7 +1,7 @@
 import { timestamp } from "../helpers/util.ts";
 
-import type { ErrorCode, AppErrorOptions } from "../types/error.types.ts";
-import { ERRORS } from "../helpers/contants.ts";
+import type { ErrorCode, AppErrorOptions } from "./error.types.ts";
+import { ERRORS } from "./error.constants.ts";
 
 import { type HttpStatusCodes } from "../types/shared.types.ts";
 

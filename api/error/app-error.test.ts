@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AppError } from "./app-error.shared.ts";
+import { AppError } from "./app-error.ts";
 
 describe("AppError", () => {
 	afterEach(() => {

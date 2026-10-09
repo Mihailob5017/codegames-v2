@@ -1,7 +1,7 @@
 import { DatabaseError } from "pg";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { AppError } from "../shared/app-error.shared.ts";
+import { AppError } from "./app-error.ts";
 import {
 	isClientHttpStatus,
 	isDatabaseError,
