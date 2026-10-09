@@ -395,3 +395,26 @@ return new AppError(errorCode, {
 ```
 
 **One honest caveat:** even `dbError.message` is driver text. It isn't row data, but if I ever want the response to be fully driver-agnostic I should swap it for a static message and let the log keep the original.
+
+### 9.10.2026
+
+#### Group shared code by concern, not by file type
+
+Error handling had ended up in five places: `AppError` in `shared/`, its types in `types/`, the error catalogue in `helpers/contants.ts` (next to route constants), and the mapping and handlers in `middleware/`. Each file was in a "sensible" folder for its _kind_, but to follow one error from `throw` to response I had to open all five.
+
+The API is already domain-first (TD-008): `admin/` holds the route, controller, service and repository for admin. The shared folders were the one place still sorted by file type. So errors became a module of their own (TD-025):
+
+```
+api/error/
+├── app-error.ts          the class everyone throws
+├── error.constants.ts    code → status + response text, pg / HTTP mappings
+├── error.types.ts
+├── error.normalize.ts    unknown error → AppError (pure, no req/res)
+└── error.middleware.ts   the Express handlers
+```
+
+Callers only import `AppError` and the two handlers; everything else can change without touching them. Domains depend on `error/`, never the other way round.
+
+**Auth is next in line.** It will have middleware too, and the old layout would have put it in `middleware/` next to the error handler, with nothing in common but the file type. The rule now is that a cross-cutting concern with more than one file gets its own folder, so it becomes `auth/auth.middleware.ts`, and `middleware/` is gone.
+
+Also closed the caveat from 8.10: database errors now get a static client message, and the pg text only goes to the log via `cause`.
