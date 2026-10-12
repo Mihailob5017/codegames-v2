@@ -15,5 +15,5 @@ jobs:
       - run: 'echo "Action name: ${{ github.event_name }} running on:${{runner.os}} using the branch: ${{github.ref}} in the repository: ${{github.repository}}"'
       - name: Check out the code
         uses: actions/checkout@v6
-      - run: 'echo: "the repository: ${{github.repository}} has been checked out"'
+      - run: 'echo "the repository: ${{github.repository}} has been checked out"'
       - run: "Job status: ${{job.status}}"
