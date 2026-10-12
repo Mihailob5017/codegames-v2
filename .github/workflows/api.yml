@@ -1,0 +1,19 @@
+name: API Workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  Github-Test-Action:
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'echo "Hello World, from Github Actions"'
+      - run: 'echo: "Action name: ${{ github.event_name }} running on:${{runner.os}} using the branch: ${{github.ref}} in the repository: ${{github.repository}}"'
+      - name: Check out the code
+        uses: actions/checkout@v6
+      - run: 'echo: "the repository: ${{github.repository}} has been checked out"'
+      - run: "Job status: ${{job.status}}"
