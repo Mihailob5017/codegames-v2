@@ -16,4 +16,4 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@v6
       - run: 'echo "the repository: ${{github.repository}} has been checked out"'
-      - run: "Job status: ${{job.status}}"
+      - run: 'echo "Job status: ${{job.status}}"'
