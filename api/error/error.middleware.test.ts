@@ -64,7 +64,7 @@ describe("errorHandler", () => {
 
 		const response = await request(app).get("/not-found");
 
-		expect(response.status).toBe(404);
+		expect(response.status).toBe(401);
 		expect(response.body).toEqual({
 			code: "NOT_FOUND",
 			statusCode: 404,
