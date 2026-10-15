@@ -137,6 +137,14 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 
 ---
 
+## TD-019: CI/CD and deployment target
+
+- **Status:** Accepted
+- **Context:** Where containers are built and deployed beyond local development.
+- **Decision** Upon each pull request into main(protected branch), the github actions for both api and web need to pass. The actions include, checking if the build passes, checking the tests etc etc...
+- **Alternatives considered** Running checks before each push, making it more safe, but slowing the progress drastically
+- **Consequences** Much more secured workflow, ensuring a code that is compiled and covered by tests only to be on main branch
+
 ## Open Decisions
 
 ## TD-014: Frontend routing and server-state fetching
@@ -163,11 +171,6 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 
 - **Status:** Proposed
 - **Context:** REST style, versioning, request validation with Zod (already a dependency), and a standard error-response shape.
-
-## TD-019: CI/CD and deployment target
-
-- **Status:** Open
-- **Context:** Where containers are built and deployed beyond local development.
 
 ## TD-020: Testing strategy
 
