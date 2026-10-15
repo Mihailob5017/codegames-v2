@@ -457,4 +457,19 @@ jobs:
 
 **`uses:` vs `run:`:** `uses:` pulls in a ready-made action someone else wrote (checkout, setup-node), while `run:` is just a shell command. The steps run in order and the job stops at the first one that fails, so a type error means lint and tests never run.
 
-I added caching in order to not have to go over installing node packages over and over again
+#### Caching npm downloads, and why the badge needs `push: main`
+
+I added caching so CI doesn't download every npm package again on each run. `setup-node` does it with two extra lines:
+
+```yaml
+with:
+  node-version: 24
+  cache: npm
+  cache-dependency-path: api/package-lock.json
+```
+
+- **What's cached** is npm's download cache (`~/.npm`), not `node_modules`. `npm ci` still runs every time, it just installs from the local cache instead of the network.
+- **The cache key is a hash of the lockfile.** When `package-lock.json` changes, the key changes and a fresh cache gets saved, so I never have to clear it by hand.
+- **`cache-dependency-path` is required here** because `defaults.run.working-directory` only applies to `run:` steps, not `uses:` steps. Without it, setup-node looks for a lockfile at the repo root and fails.
+
+I also added status badges for both workflows to the README. **A badge shows the latest run on the default branch**, so if the workflows only ran on pull requests it would say "no status". That's why I kept the `push: main` trigger next to `pull_request`, and it also re-checks the merged result.

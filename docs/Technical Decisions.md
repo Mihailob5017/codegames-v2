@@ -141,9 +141,9 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 
 - **Status:** Accepted
 - **Context:** Where containers are built and deployed beyond local development.
-- **Decision** Upon each pull request into main(protected branch), the github actions for both api and web need to pass. The actions include, checking if the build passes, checking the tests etc etc...
-- **Alternatives considered** Running checks before each push, making it more safe, but slowing the progress drastically
-- **Consequences** Much more secured workflow, ensuring a code that is compiled and covered by tests only to be on main branch
+- **Decision:** GitHub Actions runs two parallel jobs, `api` and `web`, on every pull request into `main` (a protected branch) and on every push to `main`. `api` runs typecheck, lint and tests with coverage; `web` runs the build (which typechecks), lint and tests with coverage. npm downloads are cached per lockfile. The push trigger exists so the merged result is checked once more and the README status badges reflect `main`.
+- **Alternatives considered:** Running on every push to every branch (noisy, and burns CI minutes on work in progress); no CI, relying on local checks (easy to skip). Git hooks are planned as well, but as a fast local convenience, not a replacement: CI stays the authoritative gate.
+- **Consequences:** Only code that compiles, passes lint and passes tests reaches `main`. Feedback arrives when a PR is opened, not on each commit to a working branch. The deployment target is still open.
 
 ## Open Decisions
 
