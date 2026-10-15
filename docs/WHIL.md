@@ -456,3 +456,5 @@ jobs:
 ```
 
 **`uses:` vs `run:`:** `uses:` pulls in a ready-made action someone else wrote (checkout, setup-node), while `run:` is just a shell command. The steps run in order and the job stops at the first one that fails, so a type error means lint and tests never run.
+
+I added caching in order to not have to go over installing node packages over and over again

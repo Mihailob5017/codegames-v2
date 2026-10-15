@@ -28,5 +28,5 @@ jobs:
         run: npx tsc --noEmit -p .
       - name: run linting
         run: npm run lint
-      - name: run tests
-        run: npm test
+      - name: run tests and test coverage
+        run: npm run test:coverage
