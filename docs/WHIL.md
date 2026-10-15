@@ -418,3 +418,41 @@ Callers only import `AppError` and the two handlers; everything else can change 
 **Auth is next in line.** It will have middleware too, and the old layout would have put it in `middleware/` next to the error handler, with nothing in common but the file type. The rule now is that a cross-cutting concern with more than one file gets its own folder, so it becomes `auth/auth.middleware.ts`, and `middleware/` is gone.
 
 Also closed the caveat from 8.10: database errors now get a static client message, and the pg text only goes to the log via `cause`.
+
+### 15.10.2026
+
+#### GitHub Actions run the checks on every push and pull request
+
+Today I worked with GitHub Actions. A workflow lives in `.github/workflows/` and runs automatically on the events listed under `on:`, here any push or pull request to `main`. Each job gets a fresh `ubuntu-latest` machine, so it has to clone the repo and install Node before it can do anything.
+
+```yaml
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-action:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api # every `run:` step starts inside api/
+    steps:
+      - name: checkout the codebase
+        uses: actions/checkout@v6 # clones the repository
+      - name: install node
+        uses: actions/setup-node@v4 # sets up Node.js
+        with:
+          node-version: 24
+      - name: install all dependencies
+        run: npm ci
+      - name: running typechecking
+        run: npx tsc --noEmit -p .
+      - name: run linting
+        run: npm run lint
+      - name: run tests
+        run: npm test
+```
+
+**`uses:` vs `run:`:** `uses:` pulls in a ready-made action someone else wrote (checkout, setup-node), while `run:` is just a shell command. The steps run in order and the job stops at the first one that fails, so a type error means lint and tests never run.

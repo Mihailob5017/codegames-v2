@@ -1,0 +1,28 @@
+name: Web Workflow
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  web-action:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: checkout the codebase
+        uses: actions/checkout@v6
+      - name: install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: install the dependencies
+        run: npm ci
+      - name: run the build
+        run: npm run build
+      - name: run tests
+        run: npm run test

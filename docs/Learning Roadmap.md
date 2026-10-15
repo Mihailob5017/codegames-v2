@@ -37,7 +37,7 @@ Tick items off as they're done, and write a [WHIL](WHIL.md) entry for each lesso
 - [x] Error handler logs through `req.log`; `listen()` uses the logger
 - [x] Test suite passing again
 - [x] Error handling in its own `api/error/` module (TD-025); unknown routes return the JSON 404; DB messages no longer reach the client
-- [ ] CI with GitHub Actions: typecheck, lint and tests on every push (TD-019)
+- [x] CI with GitHub Actions: typecheck, lint and tests on every push (TD-019)
   - [ ] Start minimal: two parallel jobs (`api`, `web`) running typecheck, lint, build and coverage
   - [ ] Build it up in layers, a WHIL entry each: npm caching → status badge → branch protection on `main` that _requires_ the check → a Node version matrix
   - [ ] Hooks by hand first (`git config core.hooksPath .githooks`) before reaching for Husky + lint-staged (principle 1)
