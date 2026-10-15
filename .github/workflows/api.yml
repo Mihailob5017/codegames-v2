@@ -8,12 +8,19 @@ on:
     branches:
       - main
 jobs:
-  Github-Test-Action:
+  api-action:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
     steps:
-      - run: 'echo "Hello World, from Github Actions"'
-      - run: 'echo "Action name: ${{ github.event_name }} running on:${{runner.os}} using the branch: ${{github.ref}} in the repository: ${{github.repository}}"'
-      - name: Check out the code
+      - name: checkout the codebase
         uses: actions/checkout@v6
-      - run: 'echo "the repository: ${{github.repository}} has been checked out"'
-      - run: 'echo "Job status: ${{job.status}}"'
+      - name: install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: install all dependencies
+        run: npm ci
+      # - name: run all linting
+      #   run: npx tsc --noEmit -p .
