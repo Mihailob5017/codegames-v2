@@ -4,11 +4,11 @@ import { AdminService } from "./admin.service.ts";
 import { AppError } from "../error/app-error.ts";
 import { HTTPStatusCodes } from "../helpers/contants.ts";
 
-export const healthCheck: Controller = async (req, res, next) => {
+export const healthCheck: Controller = async (req, res) => {
 	res.status(HTTPStatusCodes.OK).json({ status: "ok" });
 };
 
-export const createUser: Controller = async (req, res, next) => {
+export const createUser: Controller = async (req, res) => {
 	const validatedUser = createUserValidation(req.body);
 
 	const createdUser = await AdminService.createUser(validatedUser);
@@ -16,7 +16,7 @@ export const createUser: Controller = async (req, res, next) => {
 	res.status(HTTPStatusCodes.CREATED).json(createdUser);
 };
 
-export const deleteUser: Controller = async (req, res, next) => {
+export const deleteUser: Controller = async (req, res) => {
 	const userId = Number(req.params.id);
 
 	if (!Number.isInteger(userId) || userId <= 0) {
@@ -31,13 +31,13 @@ export const deleteUser: Controller = async (req, res, next) => {
 	res.status(HTTPStatusCodes.OK).json({ message: "User deleted successfully" });
 };
 
-export const getAllUsers: Controller = async (req, res, next) => {
+export const getAllUsers: Controller = async (req, res) => {
 	const users = await AdminService.getAllUsers();
 
 	res.status(HTTPStatusCodes.OK).json(users);
 };
 
-export const getUser: Controller = async (req, res, next) => {
+export const getUser: Controller = async (req, res) => {
 	const userId = Number(req.params.id);
 
 	if (!Number.isInteger(userId) || userId <= 0) {

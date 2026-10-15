@@ -22,11 +22,7 @@ export const errorHandler = (
 	res.status(appError.statusCode).json(toResponseBody(appError));
 };
 
-export const unknownRouteHandler = (
-	req: Request,
-	res: Response,
-	_next: NextFunction,
-) => {
+export const unknownRouteHandler = (req: Request, res: Response) => {
 	const appError = new AppError("NOT_FOUND", {
 		message: "The requested route does not exist",
 	});

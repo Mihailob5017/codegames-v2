@@ -11,7 +11,7 @@ import { customLogLevel, logger } from "./logger.config.ts";
 class ExpressServer {
 	private readonly app: Express;
 	private readonly env: EnvConfig;
-	private serverInstance: any;
+	private serverInstance: ReturnType<Express["listen"]> | null;
 	constructor(env: EnvConfig, routes: Router[]) {
 		this.env = env;
 		this.app = express();
@@ -53,7 +53,7 @@ class ExpressServer {
 	}
 	public stop(): Promise<void> {
 		return new Promise((resolve, reject) => {
-			this.serverInstance.close((err: any) => {
+			this.serverInstance?.close((err?: Error | null) => {
 				if (err) {
 					reject(err);
 				} else {

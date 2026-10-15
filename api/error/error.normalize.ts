@@ -65,7 +65,7 @@ const normalizeError = (err: unknown): AppError => {
 
 		const dbErrorDetails = (
 			dbError: DatabaseError,
-		): Record<string, any> | null => {
+		): Record<string, unknown> | null => {
 			if (errorCode === "INTERNAL_ERROR") return null;
 			return { constraint: dbError.constraint, column: dbError.column };
 		};
