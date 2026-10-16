@@ -457,4 +457,82 @@ jobs:
 
 **`uses:` vs `run:`:** `uses:` pulls in a ready-made action someone else wrote (checkout, setup-node), while `run:` is just a shell command. The steps run in order and the job stops at the first one that fails, so a type error means lint and tests never run.
 
-I added caching in order to not have to go over installing node packages over and over again
+#### Caching npm downloads, and why the badge needs `push: main`
+
+I added caching so CI doesn't download every npm package again on each run. `setup-node` does it with two extra lines:
+
+```yaml
+with:
+  node-version: 24
+  cache: npm
+  cache-dependency-path: api/package-lock.json
+```
+
+- **What's cached** is npm's download cache (`~/.npm`), not `node_modules`. `npm ci` still runs every time, it just installs from the local cache instead of the network.
+- **The cache key is a hash of the lockfile.** When `package-lock.json` changes, the key changes and a fresh cache gets saved, so I never have to clear it by hand.
+- **`cache-dependency-path` is required here** because `defaults.run.working-directory` only applies to `run:` steps, not `uses:` steps. Without it, setup-node looks for a lockfile at the repo root and fails.
+
+I also added status badges for both workflows to the README. **A badge shows the latest run on the default branch**, so if the workflows only ran on pull requests it would say "no status". That's why I kept the `push: main` trigger next to `pull_request`, and it also re-checks the merged result.
+
+### 16.10.2026
+
+#### Pre-commit hooks with Husky and lint-staged
+
+Husky and lint-staged are installed at the repo **root**, because git hooks belong to the whole repo, not to `api/` or `web/`:
+
+```bash
+npm install -D husky lint-staged
+npx husky init
+```
+
+`husky init` does two things:
+
+- **Adds `"prepare": "husky"` to the root `package.json`.** `prepare` runs after every `npm install`, so anyone who clones the repo gets the hooks automatically. That's most of what Husky is: it runs `git config core.hooksPath .husky/_` for you.
+- **Creates `.husky/pre-commit`**, which I changed from `npm test` to `npx lint-staged`. Tests are too slow for every commit, and CI runs them anyway.
+
+lint-staged runs commands only on the **staged** files. It also handles a partly staged file (`git add -p`) by stashing the unstaged part while it runs, so a fix never sweeps in changes I didn't mean to commit. Each package has its own `.lintstagedrc.json`:
+
+```json
+{
+	"*.{ts,tsx}": ["eslint --fix", "prettier --write"]
+}
+```
+
+**One config per package is required, not just tidy.** lint-staged uses the config closest to each staged file and runs the commands from that folder. ESLint and Prettier only look for their config in the folder they run from, so running them from the root would find nothing. The same goes for `.prettierrc.json` and `.prettierignore`: a `.prettierignore` at the root is never read.
+
+If ESLint reports an error, the commit is blocked. If Prettier reformats a file, the fixed version is staged and the commit goes through.
+
+#### A glob typo meant ESLint checked nothing, and still passed
+
+After setting it up I could still commit `var test = 123;`. The cause was in `api/eslint.config.js`:
+
+```js
+files: ["**/*.{ts}"], // matches nothing
+files: ["**/*.ts"],   // what I meant
+```
+
+**Braces only expand when there's a comma inside.** `{ts,tsx}` means "ts or tsx", but `{ts}` is taken literally and matches files ending in `.{ts}`. ESLint found no config for my `.ts` files, skipped them with a _warning_, and exited with 0. Both the hook and the CI lint step read that as a pass, so CI lint had been checking nothing for several commits.
+
+**Lesson:** a check that silently skips everything looks exactly like a check that passes. After adding a check, break something on purpose and confirm it actually fails.
+
+Two smaller things that came up along the way:
+
+- **Prettier needs a config that matches the existing code.** Without one, Prettier uses its defaults (spaces), and my code uses tabs. I first set `singleQuote: true` while my code uses double quotes, so every file I touched got all its quotes rewritten. The config should describe the current style, and any style change should be one separate formatting commit.
+- **`git commit --no-verify` skips the hook.** That's why the hook is a fast convenience and CI stays the real gate.
+
+#### Branch protection with a ruleset
+
+Set up under **Settings → Rules → Rulesets → New branch ruleset**, targeting the default branch (`main`). The rules I enabled:
+
+- **Restrict deletions** and **Block force pushes**
+- **Require a pull request before merging**, with **0** required approvals. On a solo repo I can't approve my own PR, so anything above 0 would block every merge.
+- **Require status checks to pass**, with **Require branches to be up to date before merging**. The required checks are the job names from `.github/workflows/*.yml` (`api-action`, `web-action`).
+
+Two things that weren't obvious:
+
+- **A check only shows up in the list after it has run once** in the repo. I had to open a PR first before I could select them.
+- **The bypass list stays empty.** If I added myself, I could skip every rule, which defeats the point.
+
+#### Skipped: a Node version matrix
+
+The roadmap had a Node version matrix as the next CI layer. A matrix runs the same job once per Node version, which matters for a library whose users pick their own Node version. My API only ever runs on the version pinned in the Dockerfile (`node:24-alpine`), so testing on 22 as well would check a setup that never exists. Knowing when a pattern _doesn't_ apply is the lesson here.

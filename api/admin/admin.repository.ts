@@ -3,6 +3,7 @@ import { db } from "../config/db.config.ts";
 import { users } from "../db/schema.ts";
 import type { CreateUserInput } from "./admin.validation.ts";
 import type { User } from "../db/schema.ts";
+
 export const AdminRepository = {
 	deleteUser: async (userId: number): Promise<void> => {
 		await db.delete(users).where(eq(users.id, userId));
