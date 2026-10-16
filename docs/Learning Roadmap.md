@@ -44,7 +44,7 @@ Tick items off as they're done, and write a [WHIL](WHIL.md) entry for each lesso
   - [x] Keep hooks fast (format/lint staged files only); CI stays the authoritative gate, not the hook
 - [ ] Integration tests against a real Postgres (Testcontainers), not only mocks (TD-020)
   - [ ] Runs in CI with no `services:` block — Docker is preinstalled on GitHub runners, Testcontainers spins Postgres up itself
-- [ ] Record the logging decision (TD-023) and the error contract (TD-018)
+- [x] Record the logging decision (TD-023) and the error contract (TD-027)
 
 ## Phase 2: Security
 

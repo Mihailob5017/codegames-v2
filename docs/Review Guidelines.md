@@ -99,7 +99,7 @@ The API follows **domain-first DDD** (TD-008). Check that new code fits it:
   - REST nouns: `POST /users`, `GET /users/:id`, `DELETE /users/:id`. Avoid verbs in paths such as `/create-user`.
   - Resource ids go in **path params**, not query strings.
   - Status codes: `201` create, `200` read/update, `204` delete with no body, `400` invalid input, `404` missing, `409` conflict, `500` unexpected.
-  - One error shape across the API.
+  - One error shape across the API (TD-027).
   - Every route is under the `/api/v1` prefix.
 - **Responses are DTOs:** an explicit allowlist of fields, typed precisely. Never return a DB row directly, and never return `password` or any other secret, **including from create/update endpoints**.
 - **Single source of truth:** route paths, config, error messages and types are defined once and imported, not copied.
@@ -123,7 +123,7 @@ The API follows **domain-first DDD** (TD-008). Check that new code fits it:
   - New `/admin` routes are reachable without auth until TD-017 lands. Mention this once per review, not per route.
 - **Unbounded queries:** list endpoints need pagination or a hard limit before the table can grow.
 - **Clean code:**
-  - No debug `console.log`. Logging goes through one place (the error middleware for now; TD-023).
+  - No debug `console.log`. Logging goes through `logger` or `req.log` (TD-023).
   - No commented-out code, no empty or placeholder files, no typos in names.
   - Functions do one thing. Comments explain _why_, not _what_.
 - **Consistency:**
@@ -263,7 +263,7 @@ These are deliberately postponed. Do not report them unless the change makes the
 
 - **Password hashing** (bcrypt) and **authentication/authorisation** are planned under TD-017. Plaintext storage of passwords is expected for now. _Returning_ a password in an API response is still a finding.
 - **Integration tests against a real Postgres:** TD-020.
-- **Logging/monitoring stack:** TD-023. Until then, `console.error` in the error middleware is the accepted logger.
+- **Monitoring and error tracking:** deferred to Phase 6 (TD-023). Logging itself is decided: pino through `logger` / `req.log`.
 
 Update this list as decisions are made.
 
