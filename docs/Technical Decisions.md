@@ -142,7 +142,7 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 - **Status:** Accepted
 - **Context:** Where containers are built and deployed beyond local development.
 - **Decision:** GitHub Actions runs two parallel jobs, `api` and `web`, on every pull request into `main` (a protected branch) and on every push to `main`. `api` runs typecheck, lint and tests with coverage; `web` runs the build (which typechecks), lint and tests with coverage. npm downloads are cached per lockfile. The push trigger exists so the merged result is checked once more and the README status badges reflect `main`.
-- **Alternatives considered:** Running on every push to every branch (noisy, and burns CI minutes on work in progress); no CI, relying on local checks (easy to skip). Git hooks are planned as well, but as a fast local convenience, not a replacement: CI stays the authoritative gate.
+- **Alternatives considered:** Running on every push to every branch (noisy, and burns CI minutes on work in progress); no CI, relying on local checks (easy to skip). Git hooks (TD-026) run as well, but as a fast local convenience, not a replacement: CI stays the authoritative gate.
 - **Consequences:** Only code that compiles, passes lint and passes tests reaches `main`. Feedback arrives when a PR is opened, not on each commit to a working branch. The deployment target is still open.
 
 ## Open Decisions
@@ -206,3 +206,11 @@ Decisions are never edited once accepted; if one changes, add a new record and m
 - **Decision:** A cross-cutting concern with more than one file gets its own folder named after the concern, laid out like a domain (TD-008): `api/error/` holds `AppError`, the error catalogue, the types, the normalisation and the Express middleware, with tests next to each file. Domains import from it; it never imports from a domain. `shared/`, `helpers/` and `types/` remain for small utilities that belong to no single concern.
 - **Alternatives considered:** Keeping layer folders (`middleware/`, `types/`, `helpers/`) for shared code: familiar, but it scatters one concern across folders and contradicts TD-008. A single `error.middleware.ts`: fewer files, but it mixes pure mapping logic with Express wiring and grows with every new error source.
 - **Consequences:** Error handling is found in one place and its internals can change without touching callers, which import only `AppError` and the two handlers. The top-level `middleware/` folder is gone; future middleware lives with its concern (for example `auth/auth.middleware.ts`).
+
+## TD-026: Pre-commit hooks with Husky and lint-staged
+
+- **Status:** Accepted
+- **Context:** CI (TD-019) only reports lint and formatting problems after a push. A local pre-commit hook catches them earlier. The repo holds two separate npm projects (`api/`, `web/`) with different ESLint versions and their own configs, while git hooks belong to the whole repository.
+- **Decision:** Husky and lint-staged are installed as dev dependencies of the root `package.json`, its first dependencies. Husky's `prepare` script sets `core.hooksPath` on `npm install`, and `.husky/pre-commit` runs `npx lint-staged`. Each package has its own `.lintstagedrc.json`, `.prettierrc.json` and `.prettierignore`; lint-staged uses the config closest to each staged file and runs its commands from that folder, so ESLint and Prettier find their package's config. The hook runs `eslint --fix` and `prettier --write` on staged files only.
+- **Alternatives considered:** A hand-written hook in `.githooks/` via `git config core.hooksPath` (each clone must run the config command by hand, and partly staged files are hard to handle safely); running tests or the typecheck in the hook (too slow, and CI runs them anyway); a single root lint-staged config (ESLint and Prettier would run from the root and miss the package configs).
+- **Consequences:** Lint errors block a commit and formatting is fixed before it lands. The hook can be skipped with `--no-verify`, so CI stays the authoritative gate. A one-off formatting commit aligned the existing code with the Prettier configs.
