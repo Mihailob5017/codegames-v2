@@ -1,0 +1,43 @@
+meta {
+  name: Create User
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/users
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "username": "player{{$randomInt}}",
+    "firstName": "{{$randomFirstName}}",
+    "lastName": "{{$randomLastName}}",
+    "email": "{{$randomEmail}}",
+    "password": "secret123"
+  }
+}
+
+script:post-response {
+  // Remember the new user's id so Get User By Id / Delete User target it.
+  // A runtime var overrides the environment's userId and isn't written to disk.
+  if (res.status === 201 && res.body && res.body.id) {
+    bru.setVar("userId", res.body.id);
+  }
+}
+
+tests {
+  test("returns 201 without the password", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body).to.have.property("id");
+    expect(res.body).to.not.have.property("password");
+  });
+}
+
+docs {
+  Validation: username 3-30 chars, firstName/lastName 1-50, valid email, password 6-50.
+  Random values avoid 409 Conflict when sending repeatedly.
+  On success, the new id is saved as the `userId` runtime variable (overrides the environment value until Bruno restarts).
+}

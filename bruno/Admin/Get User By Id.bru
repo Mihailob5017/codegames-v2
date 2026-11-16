@@ -1,0 +1,27 @@
+meta {
+  name: Get User By Id
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/admin/users/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: {{userId}}
+}
+
+tests {
+  test("returns 200 with the requested user", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("id");
+  });
+}
+
+docs {
+  Uses the `userId` environment variable (set automatically by Create User).
+  404 if the user doesn't exist, 400 if the id isn't a positive integer.
+}

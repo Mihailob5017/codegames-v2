@@ -1,0 +1,18 @@
+meta {
+  name: Health Check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/health-check
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("returns 200 with status ok", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.status).to.equal("ok");
+  });
+}
