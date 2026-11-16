@@ -1,0 +1,17 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  # codegames-v2 API
+
+  - Pick the **Local** environment (top right) before sending requests.
+  - `baseUrl` already includes the `/api/v1` prefix.
+  - Auth is set once here (Bearer `{{token}}`) and every request inherits it.
+    Set `token` in the environment; it is a secret variable, so its value is stored by Bruno, not in these files.
+    Routes don't check auth yet, so an empty token is fine for now.
+}

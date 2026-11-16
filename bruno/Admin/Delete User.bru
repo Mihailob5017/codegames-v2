@@ -1,0 +1,25 @@
+meta {
+  name: Delete User
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/admin/users/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: {{userId}}
+}
+
+tests {
+  test("returns 200", function () {
+    expect(res.status).to.equal(200);
+  });
+}
+
+docs {
+  Uses the `userId` environment variable (set automatically by Create User).
+}
