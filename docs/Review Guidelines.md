@@ -4,6 +4,8 @@ Instructions for an AI reviewer (Claude, GPT, or any other model) checking **unc
 
 **How to invoke:** _"Before I commit this code, review it using `docs/Review Guidelines.md`."_
 
+**In Claude Code:** run `/review`. It splits this process across two agents: `code-reviewer` (Phases 1 to 5, read-only) and `test-writer` (Phase 6, only after an approved review). The agent files in `.claude/agents/` follow this checklist and add to it. They also review commits on the current branch since `main`, not just uncommitted work, and they call 🟠 Important items "Major".
+
 Read this whole file before starting. Follow the phases in order. Where this file and the code disagree with [Architecture](./Architecture.md) or [Technical Decisions](./Technical%20Decisions.md), those documents describe the intended design. Flag the drift; do not silently pick a side.
 
 ---
@@ -158,7 +160,7 @@ Use this exact structure:
 ```markdown
 ## Review: <one-line summary of the change>
 
-**Verdict:** ✅ Ready to commit | ⚠️ Ready after fixes | ❌ Not ready
+**Verdict:** ✅ Ready to commit | ❌ Not ready
 **Reviewed:** <files, staged/unstaged/untracked>
 
 ### Verification
@@ -200,8 +202,9 @@ Severity definitions:
 
 ## Phase 5: Gate
 
-- **Any 🔴 Blocker → stop here.** Do not write tests. Hand the report back.
-- **No blockers → continue to Phase 6.** Mention any 🟠 items again in the final summary.
+- **Any 🔴 Blocker or 🟠 Important → stop here.** The verdict is ❌ Not ready. Do not write tests. Hand the report back.
+- **No blockers and no important items → continue to Phase 6.** The verdict is ✅ Ready to commit. Mention any open 🟡 items again in the final summary.
+- **On a re-review**, check every 🔴 and 🟠 item from the previous report first. Each one must be resolved before the verdict can be ✅.
 
 ---
 

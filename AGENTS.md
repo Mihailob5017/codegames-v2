@@ -17,4 +17,6 @@ Guidance for AI coding agents (Claude, Codex, Cursor, Kilo and others) working i
 
 ## Reviewing changes
 
-When asked to review changes, for example "review this before I commit", follow [docs/Review Guidelines.md](docs/Review%20Guidelines.md) exactly. It covers the review checklist, the report format, and how to write and verify tests afterwards.
+When asked to review changes, for example "review this before I commit", follow [docs/Review Guidelines.md](docs/Review%20Guidelines.md) exactly. It covers the review checklist, the report format, and how to write and verify tests afterwards. Tests are written only once there are no 🔴 Blocker or 🟠 Important findings.
+
+In Claude Code, the `/review` command runs this as two agents: `code-reviewer`, which is read-only, then `test-writer` once the review is approved. See `.claude/agents/` and `.claude/commands/review.md`.
