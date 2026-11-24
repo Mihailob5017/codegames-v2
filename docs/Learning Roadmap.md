@@ -48,13 +48,16 @@ Tick items off as they're done, and write a [WHIL](WHIL.md) entry for each lesso
 
 ## Phase 2: Security
 
-- [ ] Helmet: learn what each header prevents
+- [x] Helmet: learn what each header prevents (TD-028)
 - [ ] CORS limited to the frontend's origin
 - [ ] Request body size limit (`express.json({ limit })`)
-- [ ] `trust proxy`, so client IPs are correct behind a proxy
+- [x] `trust proxy`, so client IPs are correct behind a proxy (`TRUST_PROXY`, TD-028)
 - [ ] Authentication: access and refresh tokens, token rotation, logout and revocation, password hashing (TD-017)
 - [ ] Authorisation with roles; protect `/admin`
 - [ ] Rate limiting: a hand-written token bucket first, then `express-rate-limit` with a Redis store
+  - [x] `express-rate-limit` with the in-memory store, 429 in the error contract, health check exempt (TD-028)
+  - [ ] Hand-written token bucket
+  - [ ] Redis store
 - [ ] Check the app against the [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 
 ## Phase 3: Data

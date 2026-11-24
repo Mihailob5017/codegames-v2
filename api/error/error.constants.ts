@@ -21,6 +21,10 @@ export const ERRORS = {
 		statusCode: 413,
 		response: "The request body is too large.",
 	},
+	TOO_MANY_REQUESTS: {
+		statusCode: 429,
+		response: "Too many requests. Please try again later.",
+	},
 } as const;
 
 export const PG_ERROR_MAP: Partial<Record<string, ErrorCode>> = {
@@ -32,4 +36,5 @@ export const PG_ERROR_MAP: Partial<Record<string, ErrorCode>> = {
 export const HTTP_STATUS_TO_CODE: Partial<Record<number, ErrorCode>> = {
 	400: "VALIDATION_ERROR",
 	413: "CONTENT_TOO_LARGE",
+	429: "TOO_MANY_REQUESTS",
 };

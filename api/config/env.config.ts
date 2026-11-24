@@ -6,6 +6,12 @@ const envSchema = z.object({
 		.enum(["development", "production", "test"])
 		.default("development"),
 	DATABASE_URL: z.url(),
+
+	RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
+	RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+	// How many reverse proxies sit in front of the API. 0 means req.ip is the
+	// socket address and X-Forwarded-For is ignored, so it cannot be spoofed.
+	TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

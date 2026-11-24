@@ -22,6 +22,10 @@ const app = new ExpressServer(
 		PORT: 0,
 		NODE_ENV: "test",
 		DATABASE_URL: "postgresql://unused@localhost/unused",
+		// High enough that the shared app never hits the limiter across this file's requests.
+		RATE_LIMIT_WINDOW_MS: 60_000,
+		RATE_LIMIT_MAX: 1_000,
+		TRUST_PROXY: 0,
 	},
 	[adminRouter],
 ).getApp();

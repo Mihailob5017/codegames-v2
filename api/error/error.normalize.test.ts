@@ -163,6 +163,7 @@ describe("normalizeError", () => {
 	it.each([
 		[400, "VALIDATION_ERROR"],
 		[413, "CONTENT_TOO_LARGE"],
+		[429, "TOO_MANY_REQUESTS"],
 		// A 4xx without its own code still counts as a client error.
 		[415, "VALIDATION_ERROR"],
 	] as const)("maps an error tagged %i to %s", (status, code) => {

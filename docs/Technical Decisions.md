@@ -220,6 +220,22 @@ Decisions are never edited once accepted; if one changes, add a new record and m
   - The shape is part of the public API: removing or renaming a field is a breaking change, and moving to RFC 9457 later would need API versioning (TD-018).
   - There is no request id in the body yet, so a client cannot quote one when reporting a problem (Phase 6, TD-023).
 
+## TD-028: Security headers and rate limiting
+
+- **Status:** Accepted
+- **Context:** The API sent no security headers and announced itself with `X-Powered-By: Express`. Nothing limited how often one client could call it, which matters before authentication (TD-017) adds a login endpoint worth brute-forcing.
+- **Decision:**
+  - **Headers:** `helmet()` with its defaults. They fit a JSON-only API: a strict CSP, `nosniff`, `X-Frame-Options`, HSTS and no `X-Powered-By`.
+  - **Rate limiting:** `express-rate-limit` with its in-memory store, keyed on `req.ip`: `RATE_LIMIT_MAX` requests per `RATE_LIMIT_WINDOW_MS` (defaults: 100 per 15 minutes). A rejected request goes through the error middleware as `TOO_MANY_REQUESTS` (429), so it follows the error contract (TD-027); `Retry-After` and the `X-RateLimit-*` headers are kept. The health check is exempt, so uptime monitors never see a healthy API as down.
+  - **Order:** `pinoHttp` → `helmet` → rate limiter → `express.json()`. Every response gets the headers, including a 429 and body-parsing errors, and rejected requests are logged without their bodies being parsed.
+  - **`trust proxy`:** set from `TRUST_PROXY`, the number of proxies in front of the API (default 0). With 0, `X-Forwarded-For` is ignored, so a client cannot dodge the limit by faking it. Behind a proxy it must be set, or every client shares the proxy's IP and one bucket.
+  - All three settings are validated at startup as integers. The limit and the window must be positive, because an empty value coerces to 0 and a limit of 0 blocks every request.
+- **Alternatives considered:** Hand-written headers (Helmet covers more and is maintained); a hand-written token bucket (still on the roadmap, to learn the algorithm); a Redis store (needed once the API runs as more than one instance, Phase 4).
+- **Consequences:**
+  - The in-memory store is per process. Several instances multiply the effective limit, and a restart resets it. Revisit with Redis.
+  - One global limit covers every route. Login and other expensive endpoints will need their own, stricter limiters (TD-017).
+  - `TRUST_PROXY` must be set correctly when deploying (TD-019). 0 behind a proxy throttles all users together, and a value that is too high lets clients spoof their IP.
+
 ## Open Decisions
 
 ## TD-014: Frontend routing and server-state fetching

@@ -11,6 +11,7 @@ describe("AppError", () => {
 		["NOT_FOUND", 404],
 		["CONFLICT", 409],
 		["CONTENT_TOO_LARGE", 413],
+		["TOO_MANY_REQUESTS", 429],
 		["INTERNAL_ERROR", 500],
 	] as const)("maps %s to status %i", (code, statusCode) => {
 		const error = new AppError(code, { message: "msg" });
